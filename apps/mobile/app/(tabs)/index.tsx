@@ -1,5 +1,5 @@
-import { View, Text, ScrollView, Pressable } from 'react-native';
-import { Link } from 'expo-router';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ClipboardList,
@@ -9,11 +9,13 @@ import {
   ChevronRight,
   Baby,
   Plus,
+  Brain,
+  FileText,
+  Sparkles,
 } from 'lucide-react-native';
+import { mockChildren, mockAssessments, calculateAge } from '@/lib/mock-data';
 
 export default function HomeScreen() {
-  // Mock data - replace with real data from Supabase
-  const hasChildren = true;
   const upcomingScreening = {
     childName: 'Emma',
     ageMonths: 18,
@@ -21,146 +23,154 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['bottom']}>
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Welcome Section */}
-        <View className="bg-primary-500 px-6 pb-8 pt-4">
-          <Text className="text-white text-2xl font-bold">
-            Welcome back!
-          </Text>
-          <Text className="text-primary-100 mt-1">
+        <View style={styles.welcomeSection}>
+          <Text style={styles.welcomeTitle}>Welcome back!</Text>
+          <Text style={styles.welcomeSubtitle}>
             Track your child's developmental milestones
           </Text>
         </View>
 
         {/* Quick Actions */}
-        <View className="px-6 -mt-4">
-          <View className="bg-white rounded-2xl shadow-sm p-4">
-            <Text className="text-gray-900 font-semibold text-lg mb-4">
-              Quick Actions
-            </Text>
-            <View className="flex-row flex-wrap gap-3">
+        <View style={styles.section}>
+          <View style={styles.quickActionsCard}>
+            <Text style={styles.cardTitle}>Quick Actions</Text>
+            <View style={styles.actionsGrid}>
               <QuickActionButton
-                icon={ClipboardList}
-                label="New Assessment"
-                href="/assessment/new"
+                icon={Brain}
+                label="AI Analysis"
+                onPress={() => router.push('/(tabs)/videos')}
                 color="#3b82f6"
               />
               <QuickActionButton
-                icon={Video}
-                label="Record Video"
-                href="/videos/record"
-                color="#22c55e"
+                icon={ClipboardList}
+                label="Assessment"
+                onPress={() => router.push('/assessment/new' as any)}
+                color="#8b5cf6"
               />
               <QuickActionButton
-                icon={TrendingUp}
-                label="View Progress"
-                href="/progress"
-                color="#8b5cf6"
+                icon={FileText}
+                label="Reports"
+                onPress={() => router.push('/(tabs)/reports')}
+                color="#22c55e"
               />
               <QuickActionButton
                 icon={Baby}
                 label="Add Child"
-                href="/child/new"
+                onPress={() => router.push('/child/new' as any)}
                 color="#ec4899"
               />
             </View>
           </View>
         </View>
 
+        {/* AI Features Banner */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.aiBanner}
+            onPress={() => router.push('/(tabs)/reports')}
+          >
+            <View style={styles.aiBannerIcon}>
+              <Sparkles size={24} color="#ffffff" />
+            </View>
+            <View style={styles.aiBannerContent}>
+              <Text style={styles.aiBannerTitle}>AI-Powered Insights</Text>
+              <Text style={styles.aiBannerText}>
+                Generate developmental reports with artificial intelligence
+              </Text>
+            </View>
+            <ChevronRight size={20} color="rgba(255,255,255,0.8)" />
+          </TouchableOpacity>
+        </View>
+
         {/* Upcoming Screening Alert */}
         {upcomingScreening && (
-          <View className="px-6 mt-6">
-            <Pressable className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex-row items-center">
-              <View className="bg-amber-100 rounded-full p-3">
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.alertCard}>
+              <View style={styles.alertIcon}>
                 <Bell size={24} color="#d97706" />
               </View>
-              <View className="flex-1 ml-4">
-                <Text className="text-amber-800 font-semibold">
-                  Screening Due Soon
-                </Text>
-                <Text className="text-amber-700 text-sm mt-1">
+              <View style={styles.alertContent}>
+                <Text style={styles.alertTitle}>Screening Due Soon</Text>
+                <Text style={styles.alertText}>
                   {upcomingScreening.childName}'s {upcomingScreening.ageMonths}-month screening is due {upcomingScreening.dueDate}
                 </Text>
               </View>
               <ChevronRight size={20} color="#d97706" />
-            </Pressable>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Children Overview */}
-        <View className="px-6 mt-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-gray-900 font-semibold text-lg">
-              My Children
-            </Text>
-            <Link href="/children" asChild>
-              <Pressable>
-                <Text className="text-primary-500 font-medium">View All</Text>
-              </Pressable>
-            </Link>
+        {/* My Children */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>My Children</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/children')}>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
           </View>
 
-          {hasChildren ? (
-            <View className="space-y-3">
-              <ChildCard
-                name="Emma"
-                ageMonths={18}
-                lastAssessment="Jan 10, 2026"
-                status="typical"
-              />
-              <ChildCard
-                name="Liam"
-                ageMonths={36}
-                lastAssessment="Dec 15, 2025"
-                status="monitoring"
-              />
+          {mockChildren.length > 0 ? (
+            <View style={styles.childrenList}>
+              {mockChildren.map((child) => {
+                const assessment = mockAssessments.find(a => a.child_id === child.id);
+                const age = calculateAge(child.date_of_birth);
+                return (
+                  <ChildCard
+                    key={child.id}
+                    id={child.id}
+                    name={child.first_name}
+                    age={age.display}
+                    lastAssessment={assessment?.completed_at}
+                    status={assessment?.overall_risk_level || 'typical'}
+                  />
+                );
+              })}
             </View>
           ) : (
-            <View className="bg-white rounded-2xl p-6 items-center">
-              <View className="bg-gray-100 rounded-full p-4 mb-4">
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
                 <Baby size={32} color="#9ca3af" />
               </View>
-              <Text className="text-gray-900 font-semibold text-lg">
-                No children added yet
-              </Text>
-              <Text className="text-gray-500 text-center mt-2">
+              <Text style={styles.emptyTitle}>No children added yet</Text>
+              <Text style={styles.emptyText}>
                 Add your child to start tracking their developmental milestones
               </Text>
-              <Link href="/child/new" asChild>
-                <Pressable className="bg-primary-500 rounded-full px-6 py-3 mt-4 flex-row items-center">
-                  <Plus size={20} color="#ffffff" />
-                  <Text className="text-white font-semibold ml-2">
-                    Add Child
-                  </Text>
-                </Pressable>
-              </Link>
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => router.push('/child/new' as any)}
+              >
+                <Plus size={20} color="#ffffff" />
+                <Text style={styles.addButtonText}>Add Child</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
 
         {/* Recent Activity */}
-        <View className="px-6 mt-6 mb-8">
-          <Text className="text-gray-900 font-semibold text-lg mb-4">
-            Recent Activity
-          </Text>
-          <View className="bg-white rounded-2xl p-4 space-y-4">
+        <View style={[styles.section, { marginBottom: 32 }]}>
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
+          <View style={styles.activityCard}>
             <ActivityItem
               type="assessment"
               title="Assessment Completed"
-              description="Emma's 18-month assessment"
+              description="Emma's 10-month assessment"
               time="2 days ago"
             />
+            <View style={styles.activityDivider} />
             <ActivityItem
               type="video"
               title="Video Analyzed"
               description="Play session with Emma"
               time="3 days ago"
             />
+            <View style={styles.activityDivider} />
             <ActivityItem
-              type="milestone"
-              title="Milestone Achieved"
-              description="Emma: Walking independently"
+              type="report"
+              title="Report Generated"
+              description="Comprehensive development report"
               time="1 week ago"
             />
           </View>
@@ -173,84 +183,66 @@ export default function HomeScreen() {
 function QuickActionButton({
   icon: Icon,
   label,
-  href,
+  onPress,
   color,
 }: {
-  icon: typeof ClipboardList;
+  icon: React.ComponentType<{ size: number; color: string }>;
   label: string;
-  href: string;
+  onPress: () => void;
   color: string;
 }) {
   return (
-    <Link href={href as any} asChild>
-      <Pressable className="bg-gray-50 rounded-xl p-4 items-center w-[48%]">
-        <View
-          className="rounded-full p-3 mb-2"
-          style={{ backgroundColor: `${color}15` }}
-        >
-          <Icon size={24} color={color} />
-        </View>
-        <Text className="text-gray-700 font-medium text-sm">{label}</Text>
-      </Pressable>
-    </Link>
+    <TouchableOpacity style={styles.actionButton} onPress={onPress}>
+      <View style={[styles.actionButtonIcon, { backgroundColor: color + '15' }]}>
+        <Icon size={24} color={color} />
+      </View>
+      <Text style={styles.actionButtonLabel}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
 function ChildCard({
+  id,
   name,
-  ageMonths,
+  age,
   lastAssessment,
   status,
 }: {
+  id: string;
   name: string;
-  ageMonths: number;
-  lastAssessment: string;
-  status: 'typical' | 'monitoring' | 'at_risk' | 'concern';
+  age: string;
+  lastAssessment?: string;
+  status: string;
 }) {
-  const statusColors = {
+  const statusColors: Record<string, { bg: string; text: string; label: string }> = {
     typical: { bg: '#dcfce7', text: '#16a34a', label: 'On Track' },
     monitoring: { bg: '#fef9c3', text: '#ca8a04', label: 'Monitor' },
-    at_risk: { bg: '#ffedd5', text: '#ea580c', label: 'Review Needed' },
-    concern: { bg: '#fee2e2', text: '#dc2626', label: 'Evaluation Needed' },
+    'at-risk': { bg: '#ffedd5', text: '#ea580c', label: 'Review' },
+    concern: { bg: '#fee2e2', text: '#dc2626', label: 'Evaluate' },
   };
 
-  const statusStyle = statusColors[status];
-
-  const formatAge = (months: number) => {
-    if (months < 12) return `${months} months`;
-    const years = Math.floor(months / 12);
-    const remainingMonths = months % 12;
-    if (remainingMonths === 0) return `${years} year${years > 1 ? 's' : ''}`;
-    return `${years}y ${remainingMonths}m`;
-  };
+  const statusStyle = statusColors[status] || statusColors.typical;
 
   return (
-    <Link href={`/child/${name.toLowerCase()}`} asChild>
-      <Pressable className="bg-white rounded-2xl p-4 flex-row items-center shadow-sm">
-        <View className="bg-primary-100 rounded-full w-14 h-14 items-center justify-center">
-          <Text className="text-primary-600 text-xl font-bold">
-            {name.charAt(0)}
-          </Text>
-        </View>
-        <View className="flex-1 ml-4">
-          <Text className="text-gray-900 font-semibold text-lg">{name}</Text>
-          <Text className="text-gray-500 text-sm">
-            {formatAge(ageMonths)} • Last assessment: {lastAssessment}
-          </Text>
-        </View>
-        <View
-          className="rounded-full px-3 py-1"
-          style={{ backgroundColor: statusStyle.bg }}
-        >
-          <Text
-            className="text-xs font-medium"
-            style={{ color: statusStyle.text }}
-          >
-            {statusStyle.label}
-          </Text>
-        </View>
-      </Pressable>
-    </Link>
+    <TouchableOpacity
+      style={styles.childCard}
+      onPress={() => router.push(`/child/${id}`)}
+    >
+      <View style={styles.childAvatar}>
+        <Text style={styles.childAvatarText}>{name.charAt(0)}</Text>
+      </View>
+      <View style={styles.childInfo}>
+        <Text style={styles.childName}>{name}</Text>
+        <Text style={styles.childMeta}>
+          {age} {lastAssessment && `• Last: ${new Date(lastAssessment).toLocaleDateString()}`}
+        </Text>
+      </View>
+      <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+        <Text style={[styles.statusText, { color: statusStyle.text }]}>
+          {statusStyle.label}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -260,7 +252,7 @@ function ActivityItem({
   description,
   time,
 }: {
-  type: 'assessment' | 'video' | 'milestone';
+  type: 'assessment' | 'video' | 'report';
   title: string;
   description: string;
   time: string;
@@ -268,24 +260,301 @@ function ActivityItem({
   const icons = {
     assessment: { icon: ClipboardList, color: '#3b82f6' },
     video: { icon: Video, color: '#22c55e' },
-    milestone: { icon: TrendingUp, color: '#8b5cf6' },
+    report: { icon: FileText, color: '#8b5cf6' },
   };
 
   const { icon: Icon, color } = icons[type];
 
   return (
-    <View className="flex-row items-center">
-      <View
-        className="rounded-full p-2"
-        style={{ backgroundColor: `${color}15` }}
-      >
+    <View style={styles.activityItem}>
+      <View style={[styles.activityIcon, { backgroundColor: color + '15' }]}>
         <Icon size={18} color={color} />
       </View>
-      <View className="flex-1 ml-3">
-        <Text className="text-gray-900 font-medium">{title}</Text>
-        <Text className="text-gray-500 text-sm">{description}</Text>
+      <View style={styles.activityContent}>
+        <Text style={styles.activityTitle}>{title}</Text>
+        <Text style={styles.activityDescription}>{description}</Text>
       </View>
-      <Text className="text-gray-400 text-xs">{time}</Text>
+      <Text style={styles.activityTime}>{time}</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  welcomeSection: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+    paddingTop: 16,
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  welcomeSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
+  },
+  section: {
+    paddingHorizontal: 16,
+    marginTop: 16,
+  },
+  quickActionsCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: -16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 16,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  actionButton: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    width: '48%',
+  },
+  actionButtonIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  actionButtonLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4b5563',
+  },
+  aiBanner: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  aiBannerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  aiBannerContent: {
+    flex: 1,
+  },
+  aiBannerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  aiBannerText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
+  },
+  alertCard: {
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  alertIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fde68a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#92400e',
+  },
+  alertText: {
+    fontSize: 14,
+    color: '#a16207',
+    marginTop: 2,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#3b82f6',
+  },
+  childrenList: {
+    gap: 12,
+  },
+  childCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  childAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#dbeafe',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  childAvatarText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  childInfo: {
+    flex: 1,
+  },
+  childName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  childMeta: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emptyState: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  addButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    gap: 8,
+  },
+  addButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  activityCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  activityIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1f2937',
+  },
+  activityDescription: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 1,
+  },
+  activityTime: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  activityDivider: {
+    height: 1,
+    backgroundColor: '#f3f4f6',
+    marginVertical: 8,
+  },
+});

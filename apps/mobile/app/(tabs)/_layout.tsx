@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Users, Video, BarChart3, Settings } from 'lucide-react-native';
+import { Home, Users, FileText, Bot, Menu } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -16,7 +16,7 @@ export default function TabLayout() {
           height: 80,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '500',
         },
         headerStyle: {
@@ -45,27 +45,49 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="reports"
+        options={{
+          title: 'Reports',
+          headerTitle: 'AI Reports',
+          tabBarIcon: ({ color, size }) => <FileText size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="ai-info"
+        options={{
+          title: 'AI Info',
+          headerTitle: 'AI & Privacy',
+          tabBarIcon: ({ color, size }) => <Bot size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: 'More',
+          headerTitle: 'More Options',
+          tabBarIcon: ({ color, size }) => <Menu size={size} color={color} />,
+        }}
+      />
+      {/* Hidden tabs - accessible via navigation */}
+      <Tabs.Screen
         name="videos"
         options={{
-          title: 'Videos',
+          href: null, // Hide from tab bar
           headerTitle: 'Video Library',
-          tabBarIcon: ({ color, size }) => <Video size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="progress"
         options={{
-          title: 'Progress',
+          href: null, // Hide from tab bar
           headerTitle: 'Development Progress',
-          tabBarIcon: ({ color, size }) => <BarChart3 size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          href: null, // Hide from tab bar
           headerTitle: 'Settings',
-          tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
         }}
       />
     </Tabs>
