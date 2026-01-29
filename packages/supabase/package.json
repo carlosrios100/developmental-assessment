@@ -1,0 +1,16 @@
+{
+  "name": "@devassess/supabase",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "db:generate": "supabase gen types typescript --local > ./types/database.ts",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset",
+    "db:studio": "supabase studio",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop"
+  },
+  "devDependencies": {
+    "supabase": "^1.200.0"
+  }
+}
