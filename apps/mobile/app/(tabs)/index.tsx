@@ -46,8 +46,8 @@ export default function HomeScreen() {
               />
               <QuickActionButton
                 icon={ClipboardList}
-                label="Assessment"
-                onPress={() => router.push('/assessment/new' as any)}
+                label="Screener"
+                onPress={() => router.push('/screening')}
                 color="#8b5cf6"
               />
               <QuickActionButton

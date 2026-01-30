@@ -71,9 +71,9 @@ export default function MoreScreen() {
             <View style={styles.divider} />
             <MenuItem
               icon={ClipboardList}
-              title="New Assessment"
-              subtitle="Start ASQ-3 questionnaire"
-              onPress={() => router.push('/assessment/new' as any)}
+              title="Developmental Screener"
+              subtitle="Start milestone screening"
+              onPress={() => router.push('/screening')}
               color="#8b5cf6"
             />
             <View style={styles.divider} />

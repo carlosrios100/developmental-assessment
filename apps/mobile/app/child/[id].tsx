@@ -196,13 +196,13 @@ export default function ChildDetailScreen() {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push(`/assessment/new?childId=${id}` as any)}
+            onPress={() => router.push(`/screening?childId=${id}`)}
           >
             <View style={[styles.actionIcon, { backgroundColor: '#8b5cf615' }]}>
               <FileText size={24} color="#8b5cf6" />
             </View>
-            <Text style={styles.actionTitle}>New Assessment</Text>
-            <Text style={styles.actionSubtitle}>ASQ-3 questionnaire</Text>
+            <Text style={styles.actionTitle}>Screener</Text>
+            <Text style={styles.actionSubtitle}>Milestone assessment</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

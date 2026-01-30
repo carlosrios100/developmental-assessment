@@ -53,6 +53,27 @@ export default function RootLayout() {
                 presentation: 'modal',
               }}
             />
+            <Stack.Screen
+              name="screening/index"
+              options={{
+                headerShown: true,
+                headerTitle: 'Developmental Screener',
+                headerBackTitle: 'Back',
+              }}
+            />
+            <Stack.Screen
+              name="screening/[age]"
+              options={{
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="screening/results"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </SafeAreaProvider>
