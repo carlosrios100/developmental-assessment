@@ -4,6 +4,9 @@ const path = require("path");
 const projectRoot = __dirname;
 const monorepoRoot = path.resolve(projectRoot, "../..");
 
+// Set EXPO_ROUTER_APP_ROOT for web bundling
+process.env.EXPO_ROUTER_APP_ROOT = path.resolve(projectRoot, "app");
+
 const config = getDefaultConfig(projectRoot);
 
 // Watch all files in the monorepo
