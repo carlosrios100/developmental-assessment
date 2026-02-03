@@ -1,4 +1,12 @@
-import { View, Text, ScrollView, Pressable, Switch } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Switch,
+  Alert,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   User,
@@ -33,28 +41,26 @@ export default function SettingsScreen() {
   const userInitial = userName.charAt(0).toUpperCase();
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['bottom']}>
-      <ScrollView className="flex-1">
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScrollView style={styles.scrollView}>
         {/* Profile Section */}
-        <View className="px-6 pt-4">
-          <Pressable className="bg-white rounded-2xl p-4 flex-row items-center">
-            <View className="bg-primary-100 rounded-full w-16 h-16 items-center justify-center">
-              <Text className="text-primary-600 text-2xl font-bold">{userInitial}</Text>
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.profileCard} activeOpacity={0.7}>
+            <View style={styles.avatarContainer}>
+              <Text style={styles.avatarText}>{userInitial}</Text>
             </View>
-            <View className="flex-1 ml-4">
-              <Text className="text-gray-900 font-bold text-lg">{userName}</Text>
-              <Text className="text-gray-500">{userEmail}</Text>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{userName}</Text>
+              <Text style={styles.profileEmail}>{userEmail}</Text>
             </View>
             <ChevronRight size={20} color="#9ca3af" />
-          </Pressable>
+          </TouchableOpacity>
         </View>
 
         {/* Preferences */}
-        <View className="px-6 mt-6">
-          <Text className="text-gray-400 text-xs uppercase font-semibold mb-3 ml-1">
-            Preferences
-          </Text>
-          <View className="bg-white rounded-2xl overflow-hidden">
+        <View style={styles.sectionWithMargin}>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+          <View style={styles.card}>
             <SettingToggle
               icon={Bell}
               label="Notifications"
@@ -62,7 +68,7 @@ export default function SettingsScreen() {
               value={notificationsEnabled}
               onValueChange={setNotificationsEnabled}
             />
-            <View className="h-px bg-gray-100 mx-4" />
+            <View style={styles.divider} />
             <SettingToggle
               icon={Moon}
               label="Dark Mode"
@@ -74,59 +80,56 @@ export default function SettingsScreen() {
         </View>
 
         {/* Account */}
-        <View className="px-6 mt-6">
-          <Text className="text-gray-400 text-xs uppercase font-semibold mb-3 ml-1">
-            Account
-          </Text>
-          <View className="bg-white rounded-2xl overflow-hidden">
+        <View style={styles.sectionWithMargin}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <View style={styles.card}>
             <SettingLink
               icon={User}
               label="Edit Profile"
-              onPress={() => {}}
+              onPress={() => Alert.alert('Coming Soon', 'Profile editing will be available in a future update.')}
             />
-            <View className="h-px bg-gray-100 mx-4" />
+            <View style={styles.divider} />
             <SettingLink
               icon={Shield}
               label="Privacy Settings"
-              onPress={() => {}}
+              onPress={() => Alert.alert('Coming Soon', 'Privacy settings will be available in a future update.')}
             />
           </View>
         </View>
 
         {/* Support */}
-        <View className="px-6 mt-6">
-          <Text className="text-gray-400 text-xs uppercase font-semibold mb-3 ml-1">
-            Support
-          </Text>
-          <View className="bg-white rounded-2xl overflow-hidden">
+        <View style={styles.sectionWithMargin}>
+          <Text style={styles.sectionTitle}>Support</Text>
+          <View style={styles.card}>
             <SettingLink
               icon={HelpCircle}
               label="Help & FAQ"
-              onPress={() => {}}
+              onPress={() => Alert.alert('Coming Soon', 'Help & FAQ will be available in a future update.')}
             />
-            <View className="h-px bg-gray-100 mx-4" />
+            <View style={styles.divider} />
             <SettingLink
               icon={FileText}
               label="Terms & Privacy Policy"
-              onPress={() => {}}
+              onPress={() => Alert.alert('Coming Soon', 'Terms & Privacy Policy will be available in a future update.')}
             />
           </View>
         </View>
 
         {/* Sign Out */}
-        <View className="px-6 mt-6 mb-8">
-          <Pressable
-            className="bg-white rounded-2xl p-4 flex-row items-center justify-center"
+        <View style={styles.signOutSection}>
+          <TouchableOpacity
+            style={styles.signOutButton}
+            activeOpacity={0.7}
             onPress={signOut}
           >
             <LogOut size={20} color="#ef4444" />
-            <Text className="text-red-500 font-semibold ml-2">Sign Out</Text>
-          </Pressable>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
         </View>
 
         {/* App Version */}
-        <View className="items-center pb-8">
-          <Text className="text-gray-400 text-sm">DevAssess v1.0.0</Text>
+        <View style={styles.versionContainer}>
+          <Text style={styles.versionText}>DevAssess v1.0.0</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -147,13 +150,13 @@ function SettingToggle({
   onValueChange: (value: boolean) => void;
 }) {
   return (
-    <View className="p-4 flex-row items-center">
-      <View className="bg-gray-100 rounded-full p-2">
+    <View style={styles.toggleRow}>
+      <View style={styles.iconContainer}>
         <Icon size={20} color="#6b7280" />
       </View>
-      <View className="flex-1 ml-3">
-        <Text className="text-gray-900 font-medium">{label}</Text>
-        <Text className="text-gray-500 text-sm">{description}</Text>
+      <View style={styles.toggleContent}>
+        <Text style={styles.settingLabel}>{label}</Text>
+        <Text style={styles.settingDescription}>{description}</Text>
       </View>
       <Switch
         value={value}
@@ -175,15 +178,143 @@ function SettingLink({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      className="p-4 flex-row items-center active:bg-gray-50"
+    <TouchableOpacity
+      style={styles.linkRow}
+      activeOpacity={0.7}
       onPress={onPress}
     >
-      <View className="bg-gray-100 rounded-full p-2">
+      <View style={styles.iconContainer}>
         <Icon size={20} color="#6b7280" />
       </View>
-      <Text className="flex-1 text-gray-900 font-medium ml-3">{label}</Text>
+      <Text style={styles.linkLabel}>{label}</Text>
       <ChevronRight size={20} color="#9ca3af" />
-    </Pressable>
+    </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  section: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  sectionWithMargin: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+  },
+  sectionTitle: {
+    color: '#9ca3af',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  profileCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 32,
+    width: 64,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#2563eb',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  profileInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  profileName: {
+    color: '#111827',
+    fontWeight: '700',
+    fontSize: 18,
+  },
+  profileEmail: {
+    color: '#6b7280',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#f3f4f6',
+    marginHorizontal: 16,
+  },
+  toggleRow: {
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 999,
+    padding: 8,
+  },
+  toggleContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  settingLabel: {
+    color: '#111827',
+    fontWeight: '500',
+  },
+  settingDescription: {
+    color: '#6b7280',
+    fontSize: 14,
+  },
+  linkRow: {
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  linkLabel: {
+    flex: 1,
+    color: '#111827',
+    fontWeight: '500',
+    marginLeft: 12,
+  },
+  signOutSection: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+    marginBottom: 32,
+  },
+  signOutButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutText: {
+    color: '#ef4444',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  versionContainer: {
+    alignItems: 'center',
+    paddingBottom: 32,
+  },
+  versionText: {
+    color: '#9ca3af',
+    fontSize: 14,
+  },
+});

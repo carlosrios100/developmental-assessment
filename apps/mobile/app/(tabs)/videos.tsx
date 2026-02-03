@@ -45,7 +45,7 @@ const CONTEXT_OPTIONS = [
 
 export default function VideosScreen() {
   const { children } = useChildren();
-  const { data: videoData = [], isLoading: videosLoading } = useVideos();
+  const { data: videoData = [], isLoading: videosLoading, error: videosError, refetch: refetchVideos } = useVideos();
   const uploadVideo = useUploadVideo();
 
   const videos: VideoItem[] = videoData.map(v => ({
@@ -184,7 +184,28 @@ export default function VideosScreen() {
         <View style={styles.listContainer}>
           <Text style={styles.sectionTitle}>Recent Videos</Text>
 
-          {videos.length > 0 ? (
+          {videosLoading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="large" color="#3b82f6" />
+              <Text style={[styles.emptyTitle, { marginTop: 16 }]}>Loading videos...</Text>
+            </View>
+          ) : videosError ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <AlertCircle size={32} color="#ef4444" />
+              </View>
+              <Text style={styles.emptyTitle}>Failed to load videos</Text>
+              <Text style={styles.emptyText}>
+                Please check your connection and try again.
+              </Text>
+              <TouchableOpacity
+                style={[styles.uploadButton, { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12 }]}
+                onPress={() => refetchVideos()}
+              >
+                <Text style={styles.uploadButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : videos.length > 0 ? (
             <View style={styles.videoList}>
               {videos.map((video) => (
                 <VideoCard

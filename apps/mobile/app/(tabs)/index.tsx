@@ -15,17 +15,61 @@ import {
 } from 'lucide-react-native';
 import { useChildren } from '@/hooks/useChildren';
 import { useRecentAssessments } from '@/hooks/useAssessments';
+import { useVideos } from '@/hooks/useVideos';
 import { calculateAge } from '@/lib/mock-data';
 
-export default function HomeScreen() {
-  const { children, isLoading: childrenLoading } = useChildren();
-  const { data: assessments = [], isLoading: assessmentsLoading } = useRecentAssessments();
+function formatTimeAgo(dateString: string): string {
+  const now = Date.now();
+  const date = new Date(dateString).getTime();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
 
-  const upcomingScreening = {
-    childName: 'Emma',
-    ageMonths: 18,
-    dueDate: 'Feb 15, 2026',
-  };
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffWeeks === 1) return '1 week ago';
+  if (diffWeeks < 4) return `${diffWeeks} weeks ago`;
+  return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Standard ASQ screening ages in months
+const SCREENING_AGES = [2, 4, 6, 8, 9, 10, 12, 14, 16, 18, 20, 22, 24, 27, 30, 33, 36, 42, 48, 54, 60];
+
+function getNextScreeningAge(currentAgeMonths: number): number | null {
+  return SCREENING_AGES.find(age => age >= currentAgeMonths) ?? null;
+}
+
+export default function HomeScreen() {
+  const { children, isLoading: childrenLoading, error: childrenError } = useChildren();
+  const { data: assessments = [], isLoading: assessmentsLoading, error: assessmentsError } = useRecentAssessments();
+  const { data: recentVideos = [] } = useVideos();
+
+  // Compute upcoming screening from real data
+  const upcomingScreening = (() => {
+    if (children.length === 0) return null;
+    for (const child of children) {
+      const dob = child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth);
+      const ageMonths = Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+      const nextAge = getNextScreeningAge(ageMonths);
+      if (nextAge === null) continue;
+      const childAssessments = assessments.filter(a => a.child_id === child.id);
+      const hasScreeningForAge = childAssessments.some(a => a.age_at_assessment === nextAge && a.status === 'completed');
+      if (!hasScreeningForAge) {
+        const dueDate = new Date(new Date(dob).getTime() + nextAge * 30.44 * 24 * 60 * 60 * 1000);
+        return {
+          childName: child.firstName,
+          ageMonths: nextAge,
+          dueDate: dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        };
+      }
+    }
+    return null;
+  })();
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -90,8 +134,25 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Error State */}
+        {(childrenError || assessmentsError) && (
+          <View style={styles.section}>
+            <View style={[styles.alertCard, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}>
+              <View style={[styles.alertIcon, { backgroundColor: '#fecaca' }]}>
+                <Bell size={24} color="#dc2626" />
+              </View>
+              <View style={styles.alertContent}>
+                <Text style={[styles.alertTitle, { color: '#991b1b' }]}>Unable to Load Data</Text>
+                <Text style={[styles.alertText, { color: '#b91c1c' }]}>
+                  Please check your connection and try again.
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Upcoming Screening Alert */}
-        {upcomingScreening && (
+        {upcomingScreening && !(childrenError || assessmentsError) && (
           <View style={styles.section}>
             <TouchableOpacity style={styles.alertCard}>
               <View style={styles.alertIcon}>
@@ -162,28 +223,70 @@ export default function HomeScreen() {
         {/* Recent Activity */}
         <View style={[styles.section, { marginBottom: 32 }]}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <View style={styles.activityCard}>
-            <ActivityItem
-              type="assessment"
-              title="Assessment Completed"
-              description="Emma's 10-month assessment"
-              time="2 days ago"
-            />
-            <View style={styles.activityDivider} />
-            <ActivityItem
-              type="video"
-              title="Video Analyzed"
-              description="Play session with Emma"
-              time="3 days ago"
-            />
-            <View style={styles.activityDivider} />
-            <ActivityItem
-              type="report"
-              title="Report Generated"
-              description="Comprehensive development report"
-              time="1 week ago"
-            />
-          </View>
+          {assessmentsLoading ? (
+            <View style={{ padding: 32, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color="#3b82f6" />
+            </View>
+          ) : (() => {
+            const activityItems: { type: 'assessment' | 'video' | 'report'; title: string; description: string; time: string; date: number }[] = [];
+
+            assessments.forEach(a => {
+              if (!a.completed_at) return;
+              const child = children.find(c => c.id === a.child_id);
+              const timeAgo = formatTimeAgo(a.completed_at);
+              activityItems.push({
+                type: 'assessment',
+                title: 'Assessment Completed',
+                description: `${child?.firstName || 'Child'}'s ${a.age_at_assessment}-month assessment`,
+                time: timeAgo,
+                date: new Date(a.completed_at).getTime(),
+              });
+            });
+
+            recentVideos.slice(0, 5).forEach(v => {
+              const child = children.find(c => c.id === v.child_id);
+              const timeAgo = formatTimeAgo(v.created_at);
+              activityItems.push({
+                type: 'video',
+                title: v.processing_status === 'completed' ? 'Video Analyzed' : 'Video Uploaded',
+                description: `${child?.firstName || 'Child'} - ${v.context.replace(/_/g, ' ')}`,
+                time: timeAgo,
+                date: new Date(v.created_at).getTime(),
+              });
+            });
+
+            activityItems.sort((a, b) => b.date - a.date);
+            const displayItems = activityItems.slice(0, 5);
+
+            if (displayItems.length === 0) {
+              return (
+                <View style={styles.activityCard}>
+                  <View style={{ padding: 24, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 14, color: '#9ca3af' }}>No recent activity yet</Text>
+                    <Text style={{ fontSize: 13, color: '#d1d5db', marginTop: 4 }}>
+                      Complete an assessment or upload a video to get started
+                    </Text>
+                  </View>
+                </View>
+              );
+            }
+
+            return (
+              <View style={styles.activityCard}>
+                {displayItems.map((item, index) => (
+                  <View key={`${item.type}-${index}`}>
+                    {index > 0 && <View style={styles.activityDivider} />}
+                    <ActivityItem
+                      type={item.type}
+                      title={item.title}
+                      description={item.description}
+                      time={item.time}
+                    />
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
         </View>
       </ScrollView>
     </SafeAreaView>

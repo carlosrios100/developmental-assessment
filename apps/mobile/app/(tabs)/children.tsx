@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Baby, ChevronRight } from 'lucide-react-native';
@@ -11,14 +11,14 @@ export default function ChildrenScreen() {
   const { data: allAssessments = [] } = useRecentAssessments();
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['bottom']}>
-      <ScrollView className="flex-1 px-6 pt-4">
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {isLoading ? (
-          <View style={{ padding: 32, alignItems: 'center' }}>
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#3b82f6" />
           </View>
         ) : children.length > 0 ? (
-          <View className="space-y-4">
+          <View style={styles.childrenList}>
             {children.map((child) => {
               const childAssessments = allAssessments.filter(a => a.child_id === child.id);
               const latestAssessment = childAssessments[0];
@@ -41,14 +41,14 @@ export default function ChildrenScreen() {
             })}
           </View>
         ) : (
-          <View className="flex-1 items-center justify-center py-20">
-            <View className="bg-gray-100 rounded-full p-6 mb-4">
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIcon}>
               <Baby size={48} color="#9ca3af" />
             </View>
-            <Text className="text-gray-900 font-semibold text-xl">
+            <Text style={styles.emptyTitle}>
               No children yet
             </Text>
-            <Text className="text-gray-500 text-center mt-2 px-8">
+            <Text style={styles.emptyText}>
               Add your first child to start tracking their developmental progress
             </Text>
           </View>
@@ -56,12 +56,12 @@ export default function ChildrenScreen() {
 
         {/* Add Child Button */}
         <Link href="/child/new" asChild>
-          <Pressable className="bg-primary-500 rounded-2xl p-4 flex-row items-center justify-center mt-6 mb-8">
+          <TouchableOpacity style={styles.addButton}>
             <Plus size={24} color="#ffffff" />
-            <Text className="text-white font-semibold text-lg ml-2">
+            <Text style={styles.addButtonText}>
               Add Child
             </Text>
-          </Pressable>
+          </TouchableOpacity>
         </Link>
       </ScrollView>
     </SafeAreaView>
@@ -100,61 +100,198 @@ function ChildProfileCard({
 
   return (
     <Link href={`/child/${child.id}`} asChild>
-      <Pressable className="bg-white rounded-2xl p-5 shadow-sm">
-        <View className="flex-row items-center">
-          <View className="bg-primary-100 rounded-full w-16 h-16 items-center justify-center">
-            <Text className="text-primary-600 text-2xl font-bold">
+      <TouchableOpacity style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
               {child.name.charAt(0)}
             </Text>
           </View>
-          <View className="flex-1 ml-4">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-gray-900 font-bold text-xl">
+          <View style={styles.cardHeaderInfo}>
+            <View style={styles.nameRow}>
+              <Text style={styles.childName}>
                 {child.name}
               </Text>
               <View
-                className="rounded-full px-3 py-1"
-                style={{ backgroundColor: statusStyle.bg }}
+                style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}
               >
                 <Text
-                  className="text-xs font-semibold"
-                  style={{ color: statusStyle.text }}
+                  style={[styles.statusText, { color: statusStyle.text }]}
                 >
                   {statusStyle.label}
                 </Text>
               </View>
             </View>
-            <Text className="text-gray-500 mt-1">
+            <Text style={styles.childAge}>
               {formatAge(child.ageMonths)} old
             </Text>
           </View>
         </View>
 
-        <View className="flex-row mt-4 pt-4 border-t border-gray-100">
-          <View className="flex-1">
-            <Text className="text-gray-400 text-xs uppercase">
+        <View style={styles.cardFooter}>
+          <View style={styles.cardStat}>
+            <Text style={styles.cardStatLabel}>
               Assessments
             </Text>
-            <Text className="text-gray-900 font-semibold mt-1">
+            <Text style={styles.cardStatValue}>
               {child.assessmentCount}
             </Text>
           </View>
-          <View className="flex-1">
-            <Text className="text-gray-400 text-xs uppercase">
+          <View style={styles.cardStat}>
+            <Text style={styles.cardStatLabel}>
               Last Assessment
             </Text>
-            <Text className="text-gray-900 font-semibold mt-1">
+            <Text style={styles.cardStatValue}>
               {new Date(child.lastAssessment).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
               })}
             </Text>
           </View>
-          <View className="items-end justify-center">
+          <View style={styles.chevronContainer}>
             <ChevronRight size={20} color="#9ca3af" />
           </View>
         </View>
-      </Pressable>
+      </TouchableOpacity>
     </Link>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+  },
+  loadingContainer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  childrenList: {
+    gap: 16,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  emptyIcon: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 9999,
+    padding: 24,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    color: '#111827',
+    fontWeight: '600',
+    fontSize: 20,
+  },
+  emptyText: {
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 32,
+    fontSize: 14,
+  },
+  addButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+    marginBottom: 32,
+  },
+  addButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 18,
+    marginLeft: 8,
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 9999,
+    width: 64,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#2563eb',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  cardHeaderInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  childName: {
+    color: '#111827',
+    fontWeight: '700',
+    fontSize: 20,
+  },
+  statusBadge: {
+    borderRadius: 9999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  childAge: {
+    color: '#6b7280',
+    marginTop: 4,
+    fontSize: 14,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  cardStat: {
+    flex: 1,
+  },
+  cardStatLabel: {
+    color: '#9ca3af',
+    fontSize: 12,
+    textTransform: 'uppercase',
+  },
+  cardStatValue: {
+    color: '#111827',
+    fontWeight: '600',
+    marginTop: 4,
+    fontSize: 14,
+  },
+  chevronContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+});

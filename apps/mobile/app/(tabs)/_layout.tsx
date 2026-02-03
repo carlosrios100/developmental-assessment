@@ -1,5 +1,6 @@
-import { Tabs } from 'expo-router';
-import { Home, Users, FileText, Bot, Menu } from 'lucide-react-native';
+import { Tabs, router } from 'expo-router';
+import { Home, Users, FileText, Bot, Menu, ArrowLeft } from 'lucide-react-native';
+import { TouchableOpacity } from 'react-native';
 
 export default function TabLayout() {
   return (
@@ -72,22 +73,37 @@ export default function TabLayout() {
       <Tabs.Screen
         name="videos"
         options={{
-          href: null, // Hide from tab bar
+          href: null,
           headerTitle: 'Video Library',
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 12 }}>
+              <ArrowLeft size={24} color="#ffffff" />
+            </TouchableOpacity>
+          ),
         }}
       />
       <Tabs.Screen
         name="progress"
         options={{
-          href: null, // Hide from tab bar
+          href: null,
           headerTitle: 'Development Progress',
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 12 }}>
+              <ArrowLeft size={24} color="#ffffff" />
+            </TouchableOpacity>
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          href: null, // Hide from tab bar
+          href: null,
           headerTitle: 'Settings',
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 12 }}>
+              <ArrowLeft size={24} color="#ffffff" />
+            </TouchableOpacity>
+          ),
         }}
       />
     </Tabs>

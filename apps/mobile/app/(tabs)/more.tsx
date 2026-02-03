@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
@@ -12,10 +12,8 @@ import {
   Bell,
   Shield,
   ChevronRight,
-  Camera,
   ClipboardList,
   BookOpen,
-  Users,
 } from 'lucide-react-native';
 
 interface MenuItemProps {
@@ -62,14 +60,6 @@ export default function MoreScreen() {
             />
             <View style={styles.divider} />
             <MenuItem
-              icon={Camera}
-              title="Record Video"
-              subtitle="Capture new developmental footage"
-              onPress={() => router.push('/(tabs)/videos')}
-              color="#3b82f6"
-            />
-            <View style={styles.divider} />
-            <MenuItem
               icon={ClipboardList}
               title="Developmental Screener"
               subtitle="Start milestone screening"
@@ -95,24 +85,15 @@ export default function MoreScreen() {
               icon={BookOpen}
               title="Learning Center"
               subtitle="Developmental milestones guide"
-              onPress={() => {}}
+              onPress={() => Alert.alert('Coming Soon', 'The Learning Center is under development and will be available in a future update.')}
               color="#ec4899"
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon={Users}
-              title="Community"
-              subtitle="Connect with other parents"
-              onPress={() => {}}
-              color="#06b6d4"
-              badge="New"
             />
             <View style={styles.divider} />
             <MenuItem
               icon={HelpCircle}
               title="Help & Support"
               subtitle="FAQs and contact support"
-              onPress={() => {}}
+              onPress={() => Alert.alert('Coming Soon', 'Help & Support is under development and will be available in a future update.')}
               color="#6366f1"
             />
           </View>
@@ -156,7 +137,7 @@ export default function MoreScreen() {
               icon={Star}
               title="Rate the App"
               subtitle="Share your experience"
-              onPress={() => {}}
+              onPress={() => Linking.openURL('https://apps.apple.com/app/devassess/id000000000')}
               color="#f59e0b"
             />
             <View style={styles.divider} />
@@ -164,7 +145,7 @@ export default function MoreScreen() {
               icon={MessageCircle}
               title="Send Feedback"
               subtitle="Help us improve DevAssess"
-              onPress={() => {}}
+              onPress={() => Linking.openURL('mailto:feedback@devassess.app?subject=DevAssess%20Feedback')}
               color="#3b82f6"
             />
           </View>
@@ -177,14 +158,14 @@ export default function MoreScreen() {
             <MenuItem
               icon={FileText}
               title="Terms of Service"
-              onPress={() => {}}
+              onPress={() => Linking.openURL('https://devassess.app/terms')}
               color="#6b7280"
             />
             <View style={styles.divider} />
             <MenuItem
               icon={Shield}
               title="Privacy Policy"
-              onPress={() => {}}
+              onPress={() => Linking.openURL('https://devassess.app/privacy')}
               color="#6b7280"
             />
           </View>
