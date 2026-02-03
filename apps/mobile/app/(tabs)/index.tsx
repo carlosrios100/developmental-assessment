@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -13,9 +13,14 @@ import {
   FileText,
   Sparkles,
 } from 'lucide-react-native';
-import { mockChildren, mockAssessments, calculateAge } from '@/lib/mock-data';
+import { useChildren } from '@/hooks/useChildren';
+import { useRecentAssessments } from '@/hooks/useAssessments';
+import { calculateAge } from '@/lib/mock-data';
 
 export default function HomeScreen() {
+  const { children, isLoading: childrenLoading } = useChildren();
+  const { data: assessments = [], isLoading: assessmentsLoading } = useRecentAssessments();
+
   const upcomingScreening = {
     childName: 'Emma',
     ageMonths: 18,
@@ -112,18 +117,23 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {mockChildren.length > 0 ? (
+          {childrenLoading ? (
+            <View style={{ padding: 32, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#3b82f6" />
+            </View>
+          ) : children.length > 0 ? (
             <View style={styles.childrenList}>
-              {mockChildren.map((child) => {
-                const assessment = mockAssessments.find(a => a.child_id === child.id);
-                const age = calculateAge(child.date_of_birth);
+              {children.map((child) => {
+                const assessment = assessments.find(a => a.child_id === child.id);
+                const dob = child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth);
+                const age = calculateAge(dob);
                 return (
                   <ChildCard
                     key={child.id}
                     id={child.id}
-                    name={child.first_name}
+                    name={child.firstName}
                     age={age.display}
-                    lastAssessment={assessment?.completed_at}
+                    lastAssessment={assessment?.completed_at ?? undefined}
                     status={assessment?.overall_risk_level || 'typical'}
                   />
                 );

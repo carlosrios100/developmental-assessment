@@ -11,7 +11,10 @@ from src.models.assessment import (
     ResponseValue,
 )
 from src.services.supabase_client import get_supabase_client
+from src.data.cutoff_scores import get_cutoff_scores
+from src.logging_config import get_logger
 
+logger = get_logger(__name__)
 
 # Response value mapping
 RESPONSE_VALUES = {
@@ -29,24 +32,6 @@ DOMAIN_PREFIXES = {
     "personal_social": "pss",
 }
 
-# Cutoff scores by age (simplified - full data in shared package)
-CUTOFF_SCORES = {
-    12: {
-        "communication": {"cutoff": 15.64, "monitoring": 28.52, "mean": 41.4, "std": 12.88},
-        "gross_motor": {"cutoff": 21.93, "monitoring": 35.18, "mean": 48.43, "std": 13.25},
-        "fine_motor": {"cutoff": 27.82, "monitoring": 39.49, "mean": 51.16, "std": 11.67},
-        "problem_solving": {"cutoff": 25.21, "monitoring": 37.74, "mean": 50.27, "std": 12.53},
-        "personal_social": {"cutoff": 22.45, "monitoring": 35.67, "mean": 48.89, "std": 13.22},
-    },
-    24: {
-        "communication": {"cutoff": 19.52, "monitoring": 32.97, "mean": 46.42, "std": 13.45},
-        "gross_motor": {"cutoff": 36.71, "monitoring": 46.03, "mean": 55.35, "std": 9.32},
-        "fine_motor": {"cutoff": 31.52, "monitoring": 42.18, "mean": 52.84, "std": 10.66},
-        "problem_solving": {"cutoff": 27.98, "monitoring": 40.12, "mean": 52.26, "std": 12.14},
-        "personal_social": {"cutoff": 30.25, "monitoring": 41.87, "mean": 53.49, "std": 11.62},
-    },
-}
-
 
 class AssessmentService:
     """Service for managing assessments and calculating scores."""
@@ -55,7 +40,10 @@ class AssessmentService:
         self.supabase = get_supabase_client()
 
     async def create_assessment(
-        self, child_id: str, questionnaire_version: int
+        self,
+        child_id: str,
+        questionnaire_version: int,
+        completed_by_user_id: str | None = None,
     ) -> AssessmentResponse:
         """Create a new assessment."""
         # Get child's age
@@ -69,15 +57,20 @@ class AssessmentService:
         dob = datetime.fromisoformat(child_result.data[0]["date_of_birth"])
         age_months = (datetime.now().date() - dob).days // 30
 
-        result = self.supabase.table("assessments").insert({
+        insert_data: dict[str, Any] = {
             "child_id": child_id,
             "age_at_assessment": age_months,
             "questionnaire_version": questionnaire_version,
             "status": AssessmentStatus.DRAFT.value,
             "completed_by": "parent",
-        }).execute()
+        }
+        if completed_by_user_id:
+            insert_data["completed_by_user_id"] = completed_by_user_id
+
+        result = self.supabase.table("assessments").insert(insert_data).execute()
 
         data = result.data[0]
+        logger.info("Created assessment %s for child %s (age %d months)", data["id"], child_id, age_months)
         return self._map_to_response(data)
 
     async def get_assessment(self, assessment_id: str) -> AssessmentResponse | None:
@@ -111,6 +104,8 @@ class AssessmentService:
                 "notes": response.notes,
             }).execute()
 
+        logger.info("Saved %d responses for assessment %s", len(responses), assessment_id)
+
     async def score_assessment(self, assessment_id: str) -> AssessmentResponse:
         """Calculate scores for an assessment."""
         # Get assessment and responses
@@ -136,8 +131,8 @@ class AssessmentService:
             domain_responses = [r for r in responses if r["item_id"].startswith(prefix)]
             raw_score = sum(r["response_value"] for r in domain_responses)
 
-            # Get cutoffs for this age
-            cutoffs = self._get_cutoffs(age_months, domain)
+            # Get cutoffs for this age from full data module
+            cutoffs = get_cutoff_scores(age_months, domain)
 
             # Determine risk level
             if raw_score < cutoffs["cutoff"]:
@@ -199,14 +194,12 @@ class AssessmentService:
         # Generate recommendations
         await self._generate_recommendations(assessment_id, domain_scores, age_months)
 
-        return await self.get_assessment(assessment_id)
+        logger.info(
+            "Scored assessment %s: overall_risk=%s, at_risk_domains=%d",
+            assessment_id, overall_risk.value, at_risk_count,
+        )
 
-    def _get_cutoffs(self, age_months: int, domain: str) -> dict:
-        """Get cutoff scores for age and domain."""
-        # Find closest age
-        available_ages = sorted(CUTOFF_SCORES.keys())
-        closest_age = min(available_ages, key=lambda x: abs(x - age_months))
-        return CUTOFF_SCORES[closest_age][domain]
+        return await self.get_assessment(assessment_id)
 
     def _normal_cdf(self, z: float) -> float:
         """Calculate normal cumulative distribution function."""
@@ -273,6 +266,7 @@ class AssessmentService:
     async def delete_assessment(self, assessment_id: str):
         """Delete an assessment."""
         self.supabase.table("assessments").delete().eq("id", assessment_id).execute()
+        logger.info("Deleted assessment %s", assessment_id)
 
     def _map_to_response(self, data: dict) -> AssessmentResponse:
         """Map database row to response model."""

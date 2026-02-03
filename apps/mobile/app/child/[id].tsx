@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,8 +19,15 @@ import {
   CheckCircle,
   AlertCircle,
   TrendingUp,
+  Pencil,
+  Trash2,
 } from 'lucide-react-native';
-import { mockChildren, mockAssessments, mockVideos, calculateAge } from '@/lib/mock-data';
+import { useChild } from '@/hooks/useChildren';
+import { useAssessments } from '@/hooks/useAssessments';
+import { useVideos, useUploadVideo } from '@/hooks/useVideos';
+import { calculateAge } from '@/lib/mock-data';
+import { useChildStore } from '@/stores/child-store';
+import { supabase } from '@/lib/supabase';
 
 const DOMAIN_COLORS: Record<string, string> = {
   communication: '#3b82f6',
@@ -54,16 +61,59 @@ const CONTEXT_OPTIONS = [
 
 export default function ChildDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { child, isLoading: childLoading } = useChild(id);
+  const { data: assessments = [] } = useAssessments(id);
+  const { data: videoData = [] } = useVideos(id);
+  const uploadVideo = useUploadVideo();
 
-  const child = mockChildren.find(c => c.id === id);
-  const assessments = mockAssessments.filter(a => a.child_id === id);
-  const childVideos = mockVideos.filter(v => v.child_id === id);
+  const [localVideos, setLocalVideos] = useState<typeof videoData>([]);
+  const videos = [...localVideos, ...videoData];
 
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedContext, setSelectedContext] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [videos, setVideos] = useState(childVideos);
+  const [pollingVideoId, setPollingVideoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pollingVideoId) return;
+    const interval = setInterval(async () => {
+      const { data, error } = await supabase
+        .from('video_uploads')
+        .select('processing_status')
+        .eq('id', pollingVideoId)
+        .single();
+      if (error || !data) return;
+      if (data.processing_status === 'completed' || data.processing_status === 'failed') {
+        setPollingVideoId(null);
+        clearInterval(interval);
+        Alert.alert(
+          data.processing_status === 'completed' ? 'Analysis Complete' : 'Analysis Failed',
+          data.processing_status === 'completed'
+            ? 'AI analysis is ready. Check the reports section for insights.'
+            : 'Video analysis encountered an error. Please try uploading again.'
+        );
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [pollingVideoId]);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+
+  const { updateChild, deleteChild } = useChildStore();
+
+  if (childLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!child) {
     return (
@@ -75,7 +125,8 @@ export default function ChildDetailScreen() {
     );
   }
 
-  const age = calculateAge(child.date_of_birth);
+  const dob = child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth);
+  const age = calculateAge(dob);
   const latestAssessment = assessments[0];
 
   const pickAndAnalyzeVideo = async () => {
@@ -118,51 +169,76 @@ export default function ChildDetailScreen() {
     }
   };
 
-  const handleVideoForAnalysis = (asset: ImagePicker.ImagePickerAsset) => {
+  const handleVideoForAnalysis = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!selectedContext) {
       Alert.alert('Missing Context', 'Please select a video context first.');
       return;
     }
 
     setUploading(true);
-
-    // Simulate upload
-    setTimeout(() => {
+    try {
+      const result = await uploadVideo.mutateAsync({
+        fileUri: asset.uri,
+        fileName: asset.fileName || `video_${Date.now()}.mp4`,
+        childId: id!,
+        context: selectedContext,
+        recordedAt: new Date(),
+      });
       setUploading(false);
       setAnalyzing(true);
 
-      const newVideo = {
-        id: Date.now().toString(),
-        child_id: id!,
-        file_name: `video_${Date.now()}.mp4`,
-        duration: Math.round((asset.duration || 0) / 1000),
-        context: selectedContext,
-        processing_status: 'processing' as const,
-        recorded_at: new Date().toISOString(),
-      };
+      if (result && result.video_id) {
+        setPollingVideoId(result.video_id);
+      }
+      setAnalyzing(false);
+      setShowVideoModal(false);
+      setSelectedContext(null);
+    } catch (error) {
+      setUploading(false);
+      Alert.alert('Upload Failed', error instanceof Error ? error.message : 'Unknown error');
+    }
+  };
 
-      setVideos(prev => [newVideo, ...prev]);
+  const startEditing = () => {
+    setEditFirstName(child.firstName);
+    setEditLastName(child.lastName || '');
+    setEditNotes(child.notes || '');
+    setIsEditing(true);
+  };
 
-      // Simulate AI analysis completion
-      setTimeout(() => {
-        setAnalyzing(false);
-        setShowVideoModal(false);
-        setSelectedContext(null);
+  const handleSaveEdit = async () => {
+    const { error } = await updateChild(id!, {
+      firstName: editFirstName.trim(),
+      lastName: editLastName.trim(),
+      notes: editNotes.trim() || undefined,
+    });
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      setIsEditing(false);
+    }
+  };
 
-        setVideos(prev => prev.map(v =>
-          v.id === newVideo.id ? { ...v, processing_status: 'completed' as const } : v
-        ));
-
-        Alert.alert(
-          'Analysis Complete',
-          'AI has finished analyzing the video. Check the Reports tab for detailed insights.',
-          [
-            { text: 'View Reports', onPress: () => router.push('/(tabs)/reports') },
-            { text: 'OK' },
-          ]
-        );
-      }, 4000);
-    }, 2000);
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Child',
+      `Are you sure you want to delete ${child.firstName}'s profile? This will also delete all assessments, videos, and reports. This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await deleteChild(id!);
+            if (error) {
+              Alert.alert('Error', error.message);
+            } else {
+              router.back();
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -170,12 +246,21 @@ export default function ChildDetailScreen() {
       {/* Profile Header */}
       <View style={styles.header}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{child.first_name.charAt(0)}</Text>
+          <Text style={styles.avatarText}>{child.firstName.charAt(0)}</Text>
         </View>
-        <Text style={styles.name}>{child.first_name} {child.last_name}</Text>
+        <Text style={styles.name}>{child.firstName} {child.lastName || ''}</Text>
         <View style={styles.ageContainer}>
           <Calendar size={16} color="#6b7280" />
           <Text style={styles.ageText}>{age.display} old</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.editButton} onPress={startEditing}>
+            <Pencil size={18} color="#3b82f6" />
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+            <Trash2 size={18} color="#ef4444" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -297,10 +382,10 @@ export default function ChildDetailScreen() {
                 </View>
                 <View style={styles.videoInfo}>
                   <Text style={styles.videoContext}>
-                    {video.context.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    {video.context.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                   </Text>
                   <Text style={styles.videoMeta}>
-                    {video.duration}s • {new Date(video.recorded_at).toLocaleDateString()}
+                    {video.duration}s • {new Date(video.recorded_at || video.created_at).toLocaleDateString()}
                   </Text>
                 </View>
                 <View style={[
@@ -469,6 +554,53 @@ export default function ChildDetailScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Edit Child Modal */}
+      <Modal
+        visible={isEditing}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsEditing(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Edit Child</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setIsEditing(false)}>
+              <X size={24} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.fieldLabel}>First Name</Text>
+            <TextInput
+              style={styles.editInput}
+              value={editFirstName}
+              onChangeText={setEditFirstName}
+              placeholder="First name"
+              autoCapitalize="words"
+            />
+            <Text style={styles.fieldLabel}>Last Name</Text>
+            <TextInput
+              style={styles.editInput}
+              value={editLastName}
+              onChangeText={setEditLastName}
+              placeholder="Last name"
+              autoCapitalize="words"
+            />
+            <Text style={styles.fieldLabel}>Notes</Text>
+            <TextInput
+              style={[styles.editInput, { minHeight: 80, textAlignVertical: 'top' }]}
+              value={editNotes}
+              onChangeText={setEditNotes}
+              placeholder="Notes about your child"
+              multiline
+              numberOfLines={3}
+            />
+            <TouchableOpacity style={styles.saveEditButton} onPress={handleSaveEdit}>
+              <Text style={styles.saveEditButtonText}>Save Changes</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </ScrollView>
   );
 }
@@ -522,6 +654,31 @@ const styles = StyleSheet.create({
   ageText: {
     fontSize: 16,
     color: '#6b7280',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  deleteButton: {
+    backgroundColor: '#fef2f2',
+    padding: 8,
+    borderRadius: 20,
   },
   section: {
     padding: 16,
@@ -896,5 +1053,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6b7280',
     lineHeight: 18,
+  },
+  editInput: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    color: '#1f2937',
+    marginBottom: 16,
+  },
+  saveEditButton: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  saveEditButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

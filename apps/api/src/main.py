@@ -1,22 +1,26 @@
 """
 DevAssess API - AI-powered developmental assessment video analysis
 """
+import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.routers import video, assessment, reports, health
 from src.config import settings
+from src.logging_config import setup_logging, get_logger
+
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
-    # Startup
-    print(f"Starting DevAssess API v{settings.version}")
+    setup_logging()
+    logger.info("Starting DevAssess API v%s (env=%s)", settings.version, settings.environment)
     yield
-    # Shutdown
-    print("Shutting down DevAssess API")
+    logger.info("Shutting down DevAssess API")
 
 
 app = FastAPI(
@@ -34,6 +38,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    """Log request method, path, and response time."""
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "%s %s -> %d (%.1fms)",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed_ms,
+    )
+    return response
+
 
 # Include routers
 app.include_router(health.router, tags=["Health"])

@@ -1,41 +1,44 @@
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Baby, ChevronRight } from 'lucide-react-native';
+import { useChildren } from '@/hooks/useChildren';
+import { useRecentAssessments } from '@/hooks/useAssessments';
+import { calculateAge } from '@/lib/mock-data';
 
 export default function ChildrenScreen() {
-  // Mock data - replace with Supabase query
-  const children = [
-    {
-      id: '1',
-      name: 'Emma',
-      dateOfBirth: '2024-07-15',
-      ageMonths: 18,
-      gender: 'female',
-      lastAssessment: '2026-01-10',
-      assessmentCount: 3,
-      status: 'typical' as const,
-    },
-    {
-      id: '2',
-      name: 'Liam',
-      dateOfBirth: '2022-12-20',
-      ageMonths: 36,
-      gender: 'male',
-      lastAssessment: '2025-12-15',
-      assessmentCount: 5,
-      status: 'monitoring' as const,
-    },
-  ];
+  const { children, isLoading, error } = useChildren();
+  const { data: allAssessments = [] } = useRecentAssessments();
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={['bottom']}>
       <ScrollView className="flex-1 px-6 pt-4">
-        {children.length > 0 ? (
+        {isLoading ? (
+          <View style={{ padding: 32, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#3b82f6" />
+          </View>
+        ) : children.length > 0 ? (
           <View className="space-y-4">
-            {children.map((child) => (
-              <ChildProfileCard key={child.id} child={child} />
-            ))}
+            {children.map((child) => {
+              const childAssessments = allAssessments.filter(a => a.child_id === child.id);
+              const latestAssessment = childAssessments[0];
+              const dob = child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth);
+              const ageMonths = Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 30));
+              return (
+                <ChildProfileCard
+                  key={child.id}
+                  child={{
+                    id: child.id,
+                    name: child.firstName,
+                    ageMonths,
+                    gender: child.gender || 'unknown',
+                    lastAssessment: latestAssessment?.completed_at || '',
+                    assessmentCount: childAssessments.length,
+                    status: (latestAssessment?.overall_risk_level || 'typical') as any,
+                  }}
+                />
+              );
+            })}
           </View>
         ) : (
           <View className="flex-1 items-center justify-center py-20">

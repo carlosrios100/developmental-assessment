@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Alert, Modal } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Alert, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -14,7 +14,9 @@ import {
   X,
   User,
 } from 'lucide-react-native';
-import { mockChildren, mockVideos } from '@/lib/mock-data';
+import { useChildren } from '@/hooks/useChildren';
+import { useVideos, useUploadVideo } from '@/hooks/useVideos';
+import { supabase } from '@/lib/supabase';
 
 type VideoStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
@@ -42,23 +44,45 @@ const CONTEXT_OPTIONS = [
 ];
 
 export default function VideosScreen() {
-  const [videos, setVideos] = useState<VideoItem[]>(() =>
-    mockVideos.map(v => ({
-      id: v.id,
-      childId: v.child_id,
-      childName: mockChildren.find(c => c.id === v.child_id)?.first_name || 'Unknown',
-      context: v.context,
-      duration: v.duration,
-      recordedAt: v.recorded_at,
-      status: v.processing_status as VideoStatus,
-      thumbnailUrl: null,
-    }))
-  );
+  const { children } = useChildren();
+  const { data: videoData = [], isLoading: videosLoading } = useVideos();
+  const uploadVideo = useUploadVideo();
+
+  const videos: VideoItem[] = videoData.map(v => ({
+    id: v.id,
+    childId: v.child_id,
+    childName: children.find(c => c.id === v.child_id)?.firstName || 'Unknown',
+    context: v.context,
+    duration: v.duration,
+    recordedAt: v.recorded_at || v.created_at,
+    status: v.processing_status as VideoStatus,
+    thumbnailUrl: null,
+  }));
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [selectedContext, setSelectedContext] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [pollingVideoId, setPollingVideoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pollingVideoId) return;
+    const interval = setInterval(async () => {
+      const { data, error } = await supabase
+        .from('video_uploads')
+        .select('processing_status')
+        .eq('id', pollingVideoId)
+        .single();
+      if (error || !data) return;
+      if (data.processing_status === 'completed' || data.processing_status === 'failed') {
+        setPollingVideoId(null);
+        clearInterval(interval);
+        // Refetch videos list
+        // The useVideos hook will auto-refetch via React Query
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [pollingVideoId]);
 
   const pickVideo = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -100,43 +124,34 @@ export default function VideosScreen() {
     }
   };
 
-  const handleVideoSelected = (asset: ImagePicker.ImagePickerAsset) => {
+  const handleVideoSelected = async (asset: ImagePicker.ImagePickerAsset) => {
     if (!selectedChild || !selectedContext) {
       Alert.alert('Missing Information', 'Please select a child and context before uploading.');
       return;
     }
 
     setUploading(true);
-
-    // Simulate upload
-    setTimeout(() => {
-      const newVideo: VideoItem = {
-        id: Date.now().toString(),
+    try {
+      const result = await uploadVideo.mutateAsync({
+        fileUri: asset.uri,
+        fileName: asset.fileName || `video_${Date.now()}.mp4`,
         childId: selectedChild,
-        childName: mockChildren.find(c => c.id === selectedChild)?.first_name || 'Unknown',
         context: selectedContext,
-        duration: Math.round((asset.duration || 0) / 1000),
-        recordedAt: new Date().toISOString(),
-        status: 'processing',
-        thumbnailUrl: null,
-        uri: asset.uri,
-      };
-
-      setVideos(prev => [newVideo, ...prev]);
+        recordedAt: new Date(),
+      });
       setUploading(false);
       setShowUploadModal(false);
       setSelectedChild(null);
       setSelectedContext(null);
-
-      Alert.alert('Upload Started', 'Your video is being processed. This may take a few minutes.');
-
-      // Simulate processing completion
-      setTimeout(() => {
-        setVideos(prev => prev.map(v =>
-          v.id === newVideo.id ? { ...v, status: 'completed' as VideoStatus } : v
-        ));
-      }, 5000);
-    }, 2000);
+      // Start polling for processing status
+      if (result && (result as any).video_id) {
+        setPollingVideoId((result as any).video_id);
+      }
+      Alert.alert('Upload Complete', 'Your video is being analyzed. Status will update automatically.');
+    } catch (error) {
+      setUploading(false);
+      Alert.alert('Upload Failed', error instanceof Error ? error.message : 'Unknown error');
+    }
   };
 
   const contextLabels: Record<string, string> = Object.fromEntries(
@@ -226,7 +241,7 @@ export default function VideosScreen() {
             {/* Select Child */}
             <Text style={styles.fieldLabel}>Select Child</Text>
             <View style={styles.optionsGrid}>
-              {mockChildren.map((child) => (
+              {children.map((child) => (
                 <TouchableOpacity
                   key={child.id}
                   style={[
@@ -242,7 +257,7 @@ export default function VideosScreen() {
                     styles.optionText,
                     selectedChild === child.id && styles.optionTextSelected,
                   ]}>
-                    {child.first_name}
+                    {child.firstName}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -365,7 +380,11 @@ function VideoCard({
             </Text>
           </View>
           <View style={styles.statusContainer}>
-            <StatusIcon size={14} color={color} />
+            {video.status === 'processing' ? (
+              <ActivityIndicator size="small" color={color} />
+            ) : (
+              <StatusIcon size={14} color={color} />
+            )}
             <Text style={[styles.statusText, { color }]}>{label}</Text>
           </View>
         </View>

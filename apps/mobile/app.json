@@ -58,7 +58,9 @@
         {
           "photosPermission": "Allow DevAssess to access your photos to select videos for assessment."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,15 +1,19 @@
 """Reports router."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
 from src.models.report import ReportRequest, ReportResponse
 from src.services.report_generator import ReportGeneratorService
+from src.middleware.auth import get_current_user, CurrentUser
 
 router = APIRouter()
 report_service = ReportGeneratorService()
 
 
 @router.post("/generate", response_model=ReportResponse)
-async def generate_report(request: ReportRequest):
+async def generate_report(
+    request: ReportRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """
     Generate a developmental assessment report.
 
@@ -28,6 +32,7 @@ async def generate_report(request: ReportRequest):
             report_format=request.report_format,
             include_video_analysis=request.include_video_analysis,
             include_recommendations=request.include_recommendations,
+            generated_by_user_id=current_user.id,
         )
         return report
     except Exception as e:
@@ -35,7 +40,10 @@ async def generate_report(request: ReportRequest):
 
 
 @router.get("/{report_id}", response_model=ReportResponse)
-async def get_report(report_id: str):
+async def get_report(
+    report_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Get a generated report by ID."""
     try:
         report = await report_service.get_report(report_id)
@@ -49,7 +57,10 @@ async def get_report(report_id: str):
 
 
 @router.get("/assessment/{assessment_id}", response_model=list[ReportResponse])
-async def get_assessment_reports(assessment_id: str):
+async def get_assessment_reports(
+    assessment_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Get all reports for an assessment."""
     try:
         reports = await report_service.get_reports_by_assessment(assessment_id)
@@ -59,7 +70,12 @@ async def get_assessment_reports(assessment_id: str):
 
 
 @router.get("/child/{child_id}", response_model=list[ReportResponse])
-async def get_child_reports(child_id: str, limit: int = 10, offset: int = 0):
+async def get_child_reports(
+    child_id: str,
+    limit: int = 10,
+    offset: int = 0,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Get all reports for a child."""
     try:
         reports = await report_service.get_reports_by_child(child_id, limit, offset)
@@ -69,7 +85,10 @@ async def get_child_reports(child_id: str, limit: int = 10, offset: int = 0):
 
 
 @router.delete("/{report_id}")
-async def delete_report(report_id: str):
+async def delete_report(
+    report_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Delete a report."""
     try:
         await report_service.delete_report(report_id)

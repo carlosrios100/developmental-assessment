@@ -1,40 +1,62 @@
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TrendingUp, TrendingDown, Minus, ChevronDown } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useChildren } from '@/hooks/useChildren';
+import { useProgress } from '@/hooks/useProgress';
 
 export default function ProgressScreen() {
-  const [selectedChild, setSelectedChild] = useState('Emma');
+  const { children } = useChildren();
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
-  // Mock data - replace with Supabase query
-  const domainProgress = [
-    { domain: 'Communication', score: 85, trend: 'up', change: 5 },
-    { domain: 'Gross Motor', score: 92, trend: 'stable', change: 0 },
-    { domain: 'Fine Motor', score: 78, trend: 'up', change: 8 },
-    { domain: 'Problem Solving', score: 88, trend: 'up', change: 3 },
-    { domain: 'Personal-Social', score: 70, trend: 'down', change: -5 },
-  ];
+  // Auto-select first child
+  useEffect(() => {
+    if (children.length > 0 && !selectedChildId) {
+      setSelectedChildId(children[0].id);
+    }
+  }, [children]);
 
-  const recentMilestones = [
-    { id: '1', description: 'Walking independently', achievedAt: '2026-01-15', domain: 'Gross Motor' },
-    { id: '2', description: 'Says 20+ words', achievedAt: '2026-01-10', domain: 'Communication' },
-    { id: '3', description: 'Stacks 4 blocks', achievedAt: '2026-01-05', domain: 'Fine Motor' },
-  ];
+  const selectedChild = children.find(c => c.id === selectedChildId);
+  const { data: progressData, isLoading: progressLoading } = useProgress(selectedChildId ?? undefined);
+
+  const domainProgress = (progressData?.domains ?? []).map(d => ({
+    domain: d.domain.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+    score: d.currentScore,
+    trend: d.trend,
+    change: d.change,
+  }));
+
+  const recentMilestones = (progressData?.milestones ?? []).map(m => ({
+    id: m.id,
+    description: m.description,
+    achievedAt: m.achievedAt,
+    domain: m.domain.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+  }));
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={['bottom']}>
       <ScrollView className="flex-1">
         {/* Child Selector */}
         <View className="px-6 pt-4">
-          <Pressable className="bg-white rounded-xl p-4 flex-row items-center justify-between">
+          <Pressable
+            className="bg-white rounded-xl p-4 flex-row items-center justify-between"
+            onPress={() => {
+              // Cycle through children
+              if (children.length > 1) {
+                const currentIdx = children.findIndex(c => c.id === selectedChildId);
+                const nextIdx = (currentIdx + 1) % children.length;
+                setSelectedChildId(children[nextIdx].id);
+              }
+            }}
+          >
             <View className="flex-row items-center">
               <View className="bg-primary-100 rounded-full w-10 h-10 items-center justify-center">
                 <Text className="text-primary-600 font-bold">
-                  {selectedChild.charAt(0)}
+                  {selectedChild?.firstName?.charAt(0) || '?'}
                 </Text>
               </View>
               <Text className="text-gray-900 font-semibold ml-3">
-                {selectedChild}
+                {selectedChild?.firstName || 'Select Child'}
               </Text>
             </View>
             <ChevronDown size={20} color="#9ca3af" />
@@ -47,18 +69,28 @@ export default function ProgressScreen() {
             Development Overview
           </Text>
 
-          <View className="bg-white rounded-2xl p-4">
-            {domainProgress.map((item, index) => (
-              <DomainProgressBar
-                key={item.domain}
-                domain={item.domain}
-                score={item.score}
-                trend={item.trend as 'up' | 'down' | 'stable'}
-                change={item.change}
-                isLast={index === domainProgress.length - 1}
-              />
-            ))}
-          </View>
+          {progressLoading ? (
+            <View style={{ padding: 32, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#3b82f6" />
+            </View>
+          ) : domainProgress.length > 0 ? (
+            <View className="bg-white rounded-2xl p-4">
+              {domainProgress.map((item, index) => (
+                <DomainProgressBar
+                  key={item.domain}
+                  domain={item.domain}
+                  score={item.score}
+                  trend={item.trend as 'up' | 'down' | 'stable'}
+                  change={item.change}
+                  isLast={index === domainProgress.length - 1}
+                />
+              ))}
+            </View>
+          ) : (
+            <View className="bg-white rounded-2xl p-8 items-center">
+              <Text className="text-gray-500">No progress data yet. Complete an assessment first.</Text>
+            </View>
+          )}
         </View>
 
         {/* Score Legend */}

@@ -28,7 +28,7 @@ import {
   Users,
   Info,
 } from 'lucide-react-native';
-import { mockChildren } from '@/lib/mock-data';
+import { useChild } from '@/hooks/useChildren';
 
 interface DomainScore {
   score: number;
@@ -97,7 +97,7 @@ export default function ScreeningResults() {
     scores: string;
   }>();
 
-  const child = mockChildren.find(c => c.id === childId);
+  const { child } = useChild(childId);
   const ageMonths = parseInt(age || '12', 10);
   const scores: Record<string, DomainScore> = scoresParam ? JSON.parse(scoresParam) : {};
 
@@ -148,7 +148,7 @@ export default function ScreeningResults() {
   const shareResults = async () => {
     try {
       await Share.share({
-        message: `${child?.first_name}'s ${ageMonths}-Month Developmental Screening Results\n\nOverall: ${riskConfig.title} (${overallPercentage}%)\n\n${DOMAINS.map(d => `${d.name}: ${scores[d.id]?.score || 0}/60`).join('\n')}\n\nScreened with DevAssess`,
+        message: `${child?.firstName}'s ${ageMonths}-Month Developmental Screening Results\n\nOverall: ${riskConfig.title} (${overallPercentage}%)\n\n${DOMAINS.map(d => `${d.name}: ${scores[d.id]?.score || 0}/60`).join('\n')}\n\nScreened with DevAssess`,
       });
     } catch (error) {
       console.error(error);
@@ -173,7 +173,7 @@ export default function ScreeningResults() {
             {riskConfig.title}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {child?.first_name}'s {ageMonths}-Month Screening
+            {child?.firstName}'s {ageMonths}-Month Screening
           </Text>
           <View style={styles.overallScore}>
             <Text style={styles.overallScoreValue}>{overallPercentage}%</Text>

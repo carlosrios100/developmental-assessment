@@ -19,9 +19,15 @@ class Settings(BaseSettings):
     supabase_anon_key: str
     supabase_service_role_key: str
 
+    # Auth
+    supabase_jwt_secret: str = ""
+
     # AI Services
     anthropic_api_key: str = ""
     replicate_api_token: str = ""
+
+    # Logging
+    log_level: str = "INFO"
 
     # Video Processing
     max_video_size_mb: int = 500

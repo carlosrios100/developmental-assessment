@@ -1,5 +1,5 @@
 """Video analysis router."""
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Depends
 from datetime import datetime
 
 from src.models.video import (
@@ -12,6 +12,7 @@ from src.models.video import (
     BehaviorType,
 )
 from src.services.video_analysis import VideoAnalysisService
+from src.middleware.auth import get_current_user, CurrentUser
 
 router = APIRouter()
 video_service = VideoAnalysisService()
@@ -19,6 +20,7 @@ video_service = VideoAnalysisService()
 
 @router.post("/upload", response_model=dict)
 async def upload_video(
+    current_user: CurrentUser = Depends(get_current_user),
     file: UploadFile = File(...),
     child_id: str = Form(...),
     context: VideoContext = Form(...),
@@ -51,6 +53,7 @@ async def upload_video(
             context=context,
             recorded_at=recorded_at,
             assessment_id=assessment_id,
+            uploaded_by_user_id=current_user.id,
         )
         return result
     except Exception as e:
@@ -61,6 +64,7 @@ async def upload_video(
 async def process_video(
     request: VideoProcessingRequest,
     background_tasks: BackgroundTasks,
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Start video processing and analysis.
@@ -93,7 +97,10 @@ async def process_video(
 
 
 @router.get("/status/{video_id}", response_model=VideoProcessingStatus)
-async def get_processing_status(video_id: str):
+async def get_processing_status(
+    video_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Get video processing status."""
     try:
         status = await video_service.get_processing_status(video_id)
@@ -107,7 +114,10 @@ async def get_processing_status(video_id: str):
 
 
 @router.get("/result/{video_id}", response_model=VideoAnalysisResult)
-async def get_analysis_result(video_id: str):
+async def get_analysis_result(
+    video_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Get video analysis result."""
     try:
         result = await video_service.get_analysis_result(video_id)
@@ -121,7 +131,12 @@ async def get_analysis_result(video_id: str):
 
 
 @router.get("/child/{child_id}", response_model=list[dict])
-async def get_child_videos(child_id: str, limit: int = 20, offset: int = 0):
+async def get_child_videos(
+    child_id: str,
+    limit: int = 20,
+    offset: int = 0,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Get all videos for a child."""
     try:
         videos = await video_service.get_videos_by_child(child_id, limit, offset)
@@ -131,7 +146,10 @@ async def get_child_videos(child_id: str, limit: int = 20, offset: int = 0):
 
 
 @router.delete("/{video_id}")
-async def delete_video(video_id: str):
+async def delete_video(
+    video_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Delete a video and its analysis results."""
     try:
         await video_service.delete_video(video_id)

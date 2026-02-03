@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   FileText,
@@ -16,7 +16,10 @@ import {
   Sparkles,
   Clock,
 } from 'lucide-react-native';
-import { mockChildren, mockAssessments, calculateAge } from '@/lib/mock-data';
+import { useChildren } from '@/hooks/useChildren';
+import { useRecentAssessments } from '@/hooks/useAssessments';
+import { useGenerateReport } from '@/hooks/useReports';
+import { calculateAge } from '@/lib/mock-data';
 
 interface Report {
   id: string;
@@ -61,28 +64,11 @@ const REPORT_TYPES = [
 ];
 
 export default function ReportsScreen() {
-  const [reports, setReports] = useState<Report[]>([
-    {
-      id: '1',
-      childId: '1',
-      childName: 'Emma',
-      type: 'comprehensive',
-      title: 'Comprehensive Development Report',
-      generatedAt: '2026-01-25T10:00:00Z',
-      status: 'ready',
-      summary: 'Overall development is on track with strong communication skills.',
-    },
-    {
-      id: '2',
-      childId: '2',
-      childName: 'Liam',
-      type: 'progress',
-      title: 'Quarterly Progress Report',
-      generatedAt: '2026-01-20T14:30:00Z',
-      status: 'ready',
-      summary: 'Significant improvement in fine motor skills over the past 3 months.',
-    },
-  ]);
+  const { children } = useChildren();
+  const { data: assessments = [] } = useRecentAssessments();
+  const generateReportMutation = useGenerateReport();
+
+  const [reports, setReports] = useState<Report[]>([]);
 
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
@@ -90,24 +76,35 @@ export default function ReportsScreen() {
   const [generating, setGenerating] = useState(false);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
-  const generateReport = () => {
+  const generateReport = async () => {
     if (!selectedChild || !selectedReportType) return;
 
-    setGenerating(true);
-    const child = mockChildren.find(c => c.id === selectedChild);
-    const reportType = REPORT_TYPES.find(t => t.id === selectedReportType);
+    const child = children.find(c => c.id === selectedChild);
+    const latestAssessment = assessments.find(a => a.child_id === selectedChild);
+    if (!latestAssessment) {
+      Alert.alert('No Assessment', 'Please complete an assessment first before generating a report.');
+      return;
+    }
 
-    // Simulate AI report generation
-    setTimeout(() => {
-      const newReport: Report = {
-        id: Date.now().toString(),
+    setGenerating(true);
+    try {
+      const report = await generateReportMutation.mutateAsync({
+        assessmentId: latestAssessment.id,
         childId: selectedChild,
-        childName: child?.first_name || 'Unknown',
+        reportType: selectedReportType === 'comprehensive' ? 'parent_summary' :
+                    selectedReportType === 'progress' ? 'progress_comparison' :
+                    selectedReportType === 'video-analysis' ? 'video_analysis' : 'professional_detailed',
+      });
+
+      const newReport: Report = {
+        id: report.id,
+        childId: selectedChild,
+        childName: child?.firstName || 'Unknown',
         type: selectedReportType as Report['type'],
-        title: reportType?.title || 'Report',
-        generatedAt: new Date().toISOString(),
+        title: REPORT_TYPES.find(t => t.id === selectedReportType)?.title || 'Report',
+        generatedAt: report.generated_at || new Date().toISOString(),
         status: 'ready',
-        summary: generateAISummary(selectedReportType, child?.first_name || 'Child'),
+        summary: report.sections?.[0]?.content?.substring(0, 200) || 'Report generated successfully.',
       };
 
       setReports(prev => [newReport, ...prev]);
@@ -115,17 +112,10 @@ export default function ReportsScreen() {
       setShowGenerateModal(false);
       setSelectedChild(null);
       setSelectedReportType(null);
-    }, 3000);
-  };
-
-  const generateAISummary = (type: string, childName: string): string => {
-    const summaries: Record<string, string> = {
-      comprehensive: `${childName}'s overall development shows strong progress across all domains. Communication and social skills are particularly well-developed.`,
-      progress: `Over the assessment period, ${childName} has shown consistent improvement in gross motor skills and problem-solving abilities.`,
-      milestone: `${childName} has achieved 85% of age-appropriate milestones, with notable strengths in language development.`,
-      'video-analysis': `AI analysis of recent videos indicates natural play patterns and appropriate peer interaction skills for ${childName}'s age.`,
-    };
-    return summaries[type] || 'Report generated successfully.';
+    } catch (error) {
+      setGenerating(false);
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to generate report');
+    }
   };
 
   return (
@@ -271,36 +261,39 @@ export default function ReportsScreen() {
             {/* Select Child */}
             <Text style={styles.fieldLabel}>Select Child</Text>
             <View style={styles.childOptions}>
-              {mockChildren.map((child) => (
-                <TouchableOpacity
-                  key={child.id}
-                  style={[
-                    styles.childOption,
-                    selectedChild === child.id && styles.childOptionSelected,
-                  ]}
-                  onPress={() => setSelectedChild(child.id)}
-                >
-                  <View style={styles.childAvatar}>
-                    <Text style={styles.childAvatarText}>
-                      {child.first_name.charAt(0)}
-                    </Text>
-                  </View>
-                  <View style={styles.childInfo}>
-                    <Text style={[
-                      styles.childName,
-                      selectedChild === child.id && styles.childNameSelected,
-                    ]}>
-                      {child.first_name} {child.last_name}
-                    </Text>
-                    <Text style={styles.childAge}>
-                      {calculateAge(child.date_of_birth).display}
-                    </Text>
-                  </View>
-                  {selectedChild === child.id && (
-                    <CheckCircle size={20} color="#3b82f6" />
-                  )}
-                </TouchableOpacity>
-              ))}
+              {children.map((child) => {
+                const dob = child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth);
+                return (
+                  <TouchableOpacity
+                    key={child.id}
+                    style={[
+                      styles.childOption,
+                      selectedChild === child.id && styles.childOptionSelected,
+                    ]}
+                    onPress={() => setSelectedChild(child.id)}
+                  >
+                    <View style={styles.childAvatar}>
+                      <Text style={styles.childAvatarText}>
+                        {child.firstName.charAt(0)}
+                      </Text>
+                    </View>
+                    <View style={styles.childInfo}>
+                      <Text style={[
+                        styles.childName,
+                        selectedChild === child.id && styles.childNameSelected,
+                      ]}>
+                        {child.firstName} {child.lastName || ''}
+                      </Text>
+                      <Text style={styles.childAge}>
+                        {calculateAge(dob).display}
+                      </Text>
+                    </View>
+                    {selectedChild === child.id && (
+                      <CheckCircle size={20} color="#3b82f6" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Select Report Type */}

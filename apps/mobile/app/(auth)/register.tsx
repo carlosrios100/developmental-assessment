@@ -2,15 +2,25 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { signUp, isLoading } = useAuthStore();
+  const [error, setError] = useState('');
 
-  const handleRegister = () => {
-    // Demo mode - just navigate to main app
-    router.replace('/(tabs)');
+  const handleRegister = async () => {
+    if (!name || !email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
+    setError('');
+    const result = await signUp(email, password, name);
+    if (result.error) {
+      setError(result.error.message);
+    }
   };
 
   return (
@@ -43,8 +53,10 @@ export default function RegisterScreen() {
             secureTextEntry
           />
 
-          <TouchableOpacity style={styles.button} onPress={handleRegister}>
-            <Text style={styles.buttonText}>Create Account</Text>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={isLoading}>
+            <Text style={styles.buttonText}>{isLoading ? 'Creating Account...' : 'Create Account'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -106,6 +118,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    textAlign: 'center',
   },
   linkContainer: {
     marginTop: 32,

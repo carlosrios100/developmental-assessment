@@ -12,7 +12,9 @@ import {
   Sparkles,
   CheckCircle,
 } from 'lucide-react-native';
-import { mockChildren, mockAssessments, calculateAge } from '@/lib/mock-data';
+import { useChildren } from '@/hooks/useChildren';
+import { useRecentAssessments } from '@/hooks/useAssessments';
+import { calculateAge } from '@/lib/mock-data';
 
 const AGE_INTERVALS = [2, 4, 6, 8, 9, 10, 12, 14, 16, 18, 20, 22, 24, 27, 30, 33, 36, 42, 48, 54, 60];
 
@@ -33,27 +35,34 @@ function getRecommendedInterval(ageInMonths: number): number {
 
 export default function ScreeningStartScreen() {
   const { childId } = useLocalSearchParams<{ childId?: string }>();
+  const { children } = useChildren();
+  const { data: allAssessments = [] } = useRecentAssessments();
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [selectedAge, setSelectedAge] = useState<number | null>(null);
 
   // Pre-select child if childId is passed from URL
   useEffect(() => {
     if (childId) {
-      const child = mockChildren.find(c => c.id === childId);
+      const child = children.find(c => c.id === childId);
       if (child) {
-        const age = calculateAge(child.date_of_birth);
+        const dob = child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth);
+        const age = calculateAge(dob);
         setSelectedChild(childId);
         setSelectedAge(getRecommendedInterval(age.months));
       }
     }
-  }, [childId]);
+  }, [childId, children]);
 
-  const selectedChildData = mockChildren.find(c => c.id === selectedChild);
-  const childAge = selectedChildData ? calculateAge(selectedChildData.date_of_birth) : null;
+  const selectedChildData = children.find(c => c.id === selectedChild);
+  const childAge = selectedChildData ? calculateAge(
+    selectedChildData.dateOfBirth instanceof Date
+      ? selectedChildData.dateOfBirth.toISOString()
+      : String(selectedChildData.dateOfBirth)
+  ) : null;
   const recommendedAge = childAge ? getRecommendedInterval(childAge.months) : null;
 
   const childAssessments = selectedChild
-    ? mockAssessments.filter(a => a.child_id === selectedChild)
+    ? allAssessments.filter(a => a.child_id === selectedChild)
     : [];
 
   const startScreening = () => {
@@ -91,10 +100,11 @@ export default function ScreeningStartScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Select Child</Text>
           <View style={styles.childList}>
-            {mockChildren.map((child) => {
-              const age = calculateAge(child.date_of_birth);
+            {children.map((child) => {
+              const dob = child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth);
+              const age = calculateAge(dob);
               const isSelected = selectedChild === child.id;
-              const lastAssessment = mockAssessments.find(a => a.child_id === child.id);
+              const lastAssessment = allAssessments.find(a => a.child_id === child.id);
 
               return (
                 <TouchableOpacity
@@ -107,17 +117,17 @@ export default function ScreeningStartScreen() {
                 >
                   <View style={[styles.childAvatar, isSelected && styles.childAvatarSelected]}>
                     <Text style={[styles.childAvatarText, isSelected && styles.childAvatarTextSelected]}>
-                      {child.first_name.charAt(0)}
+                      {child.firstName.charAt(0)}
                     </Text>
                   </View>
                   <View style={styles.childInfo}>
                     <Text style={[styles.childName, isSelected && styles.childNameSelected]}>
-                      {child.first_name} {child.last_name}
+                      {child.firstName} {child.lastName || ''}
                     </Text>
                     <Text style={styles.childAge}>{age.display} old</Text>
                     {lastAssessment && (
                       <Text style={styles.lastAssessment}>
-                        Last screening: {new Date(lastAssessment.completed_at).toLocaleDateString()}
+                        Last screening: {new Date(lastAssessment.completed_at || '').toLocaleDateString()}
                       </Text>
                     )}
                   </View>
@@ -133,7 +143,7 @@ export default function ScreeningStartScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Select Questionnaire</Text>
             <Text style={styles.sectionHint}>
-              Based on {selectedChildData?.first_name}'s age, we recommend the {recommendedAge}-month questionnaire
+              Based on {selectedChildData?.firstName}'s age, we recommend the {recommendedAge}-month questionnaire
             </Text>
 
             <ScrollView

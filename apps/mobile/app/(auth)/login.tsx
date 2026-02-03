@@ -2,13 +2,28 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { signIn, isLoading } = useAuthStore();
+  const [error, setError] = useState('');
 
-  const handleLogin = () => {
-    // Demo mode - just navigate to main app
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError('Please enter email and password');
+      return;
+    }
+    setError('');
+    const result = await signIn(email, password);
+    if (result.error) {
+      setError(result.error.message);
+    }
+    // Navigation happens automatically via auth state change in _layout.tsx
+  };
+
+  const handleDemo = () => {
     router.replace('/(tabs)');
   };
 
@@ -35,11 +50,13 @@ export default function LoginScreen() {
             secureTextEntry
           />
 
-          <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Sign In</Text>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={isLoading}>
+            <Text style={styles.buttonText}>{isLoading ? 'Signing In...' : 'Sign In'}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.demoButton} onPress={handleLogin}>
+          <TouchableOpacity style={styles.demoButton} onPress={handleDemo}>
             <Text style={styles.demoButtonText}>Continue with Demo</Text>
           </TouchableOpacity>
         </View>
@@ -113,6 +130,11 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 16,
     fontWeight: '500',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    textAlign: 'center',
   },
   linkContainer: {
     marginTop: 32,

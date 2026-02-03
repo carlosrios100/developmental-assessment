@@ -10,11 +10,27 @@ import {
   ChevronRight,
   Moon,
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { router } from 'expo-router';
+import { useAuthStore } from '@/stores/auth-store';
+import { useSettingsStore } from '@/stores/settings-store';
 
 export default function SettingsScreen() {
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
+  const {
+    notificationsEnabled,
+    darkMode,
+    setNotificationsEnabled,
+    setDarkMode,
+    initialize: initSettings,
+  } = useSettingsStore();
+  const { user, signOut } = useAuthStore();
+
+  useEffect(() => {
+    initSettings();
+  }, []);
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const userEmail = user?.email || '';
+  const userInitial = userName.charAt(0).toUpperCase();
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={['bottom']}>
@@ -23,11 +39,11 @@ export default function SettingsScreen() {
         <View className="px-6 pt-4">
           <Pressable className="bg-white rounded-2xl p-4 flex-row items-center">
             <View className="bg-primary-100 rounded-full w-16 h-16 items-center justify-center">
-              <Text className="text-primary-600 text-2xl font-bold">J</Text>
+              <Text className="text-primary-600 text-2xl font-bold">{userInitial}</Text>
             </View>
             <View className="flex-1 ml-4">
-              <Text className="text-gray-900 font-bold text-lg">John Doe</Text>
-              <Text className="text-gray-500">john.doe@example.com</Text>
+              <Text className="text-gray-900 font-bold text-lg">{userName}</Text>
+              <Text className="text-gray-500">{userEmail}</Text>
             </View>
             <ChevronRight size={20} color="#9ca3af" />
           </Pressable>
@@ -99,7 +115,10 @@ export default function SettingsScreen() {
 
         {/* Sign Out */}
         <View className="px-6 mt-6 mb-8">
-          <Pressable className="bg-white rounded-2xl p-4 flex-row items-center justify-center">
+          <Pressable
+            className="bg-white rounded-2xl p-4 flex-row items-center justify-center"
+            onPress={signOut}
+          >
             <LogOut size={20} color="#ef4444" />
             <Text className="text-red-500 font-semibold ml-2">Sign Out</Text>
           </Pressable>

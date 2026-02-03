@@ -1,5 +1,5 @@
 """Assessment router."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
 from src.models.assessment import (
     AssessmentCreate,
@@ -9,18 +9,23 @@ from src.models.assessment import (
     DomainScoreResponse,
 )
 from src.services.assessment import AssessmentService
+from src.middleware.auth import get_current_user, CurrentUser
 
 router = APIRouter()
 assessment_service = AssessmentService()
 
 
 @router.post("/", response_model=AssessmentResponse)
-async def create_assessment(request: AssessmentCreate):
+async def create_assessment(
+    request: AssessmentCreate,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Create a new assessment for a child."""
     try:
         assessment = await assessment_service.create_assessment(
             child_id=request.child_id,
             questionnaire_version=request.questionnaire_version,
+            completed_by_user_id=current_user.id,
         )
         return assessment
     except Exception as e:
@@ -28,7 +33,10 @@ async def create_assessment(request: AssessmentCreate):
 
 
 @router.get("/{assessment_id}", response_model=AssessmentResponse)
-async def get_assessment(assessment_id: str):
+async def get_assessment(
+    assessment_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Get assessment by ID."""
     try:
         assessment = await assessment_service.get_assessment(assessment_id)
@@ -42,7 +50,11 @@ async def get_assessment(assessment_id: str):
 
 
 @router.post("/{assessment_id}/responses")
-async def save_responses(assessment_id: str, responses: list[QuestionnaireResponseCreate]):
+async def save_responses(
+    assessment_id: str,
+    responses: list[QuestionnaireResponseCreate],
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Save questionnaire responses for an assessment."""
     try:
         await assessment_service.save_responses(assessment_id, responses)
@@ -52,7 +64,10 @@ async def save_responses(assessment_id: str, responses: list[QuestionnaireRespon
 
 
 @router.post("/{assessment_id}/score", response_model=AssessmentResponse)
-async def score_assessment(assessment_id: str):
+async def score_assessment(
+    assessment_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """
     Calculate scores for a completed assessment.
 
@@ -69,7 +84,10 @@ async def score_assessment(assessment_id: str):
 
 
 @router.get("/{assessment_id}/scores", response_model=list[DomainScoreResponse])
-async def get_domain_scores(assessment_id: str):
+async def get_domain_scores(
+    assessment_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Get domain scores for an assessment."""
     try:
         scores = await assessment_service.get_domain_scores(assessment_id)
@@ -79,7 +97,12 @@ async def get_domain_scores(assessment_id: str):
 
 
 @router.get("/child/{child_id}", response_model=list[AssessmentResponse])
-async def get_child_assessments(child_id: str, limit: int = 10, offset: int = 0):
+async def get_child_assessments(
+    child_id: str,
+    limit: int = 10,
+    offset: int = 0,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Get all assessments for a child."""
     try:
         assessments = await assessment_service.get_assessments_by_child(
@@ -91,7 +114,10 @@ async def get_child_assessments(child_id: str, limit: int = 10, offset: int = 0)
 
 
 @router.delete("/{assessment_id}")
-async def delete_assessment(assessment_id: str):
+async def delete_assessment(
+    assessment_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Delete an assessment."""
     try:
         await assessment_service.delete_assessment(assessment_id)

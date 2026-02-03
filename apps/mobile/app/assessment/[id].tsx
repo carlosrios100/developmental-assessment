@@ -1,8 +1,10 @@
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, Clock, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react-native';
-import { mockAssessments, mockChildren, calculateAge } from '@/lib/mock-data';
+import { useAssessment } from '@/hooks/useAssessments';
+import { useChild } from '@/hooks/useChildren';
+import { calculateAge } from '@/lib/mock-data';
 
 const DOMAIN_COLORS: Record<string, string> = {
   communication: '#3b82f6',
@@ -36,9 +38,18 @@ const RISK_DESCRIPTIONS: Record<string, string> = {
 
 export default function AssessmentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { data: assessment, isLoading: assessmentLoading } = useAssessment(id);
+  const { child, isLoading: childLoading } = useChild(assessment?.child_id);
 
-  const assessment = mockAssessments.find(a => a.id === id);
-  const child = assessment ? mockChildren.find(c => c.id === assessment.child_id) : null;
+  if (assessmentLoading || childLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!assessment || !child) {
     return (
@@ -101,9 +112,9 @@ export default function AssessmentDetailScreen() {
           style={styles.childCard}
           onPress={() => router.push(`/child/${child.id}`)}
         >
-          <Text style={styles.childName}>{child.first_name} {child.last_name}</Text>
+          <Text style={styles.childName}>{child.firstName} {child.lastName || ''}</Text>
           <Text style={styles.childAge}>
-            Current age: {calculateAge(child.date_of_birth).display}
+            Current age: {calculateAge(child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth)).display}
           </Text>
         </TouchableOpacity>
       </View>

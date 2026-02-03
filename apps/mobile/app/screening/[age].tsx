@@ -24,7 +24,8 @@ import {
   Clock,
   X,
 } from 'lucide-react-native';
-import { mockChildren } from '@/lib/mock-data';
+import { useChild } from '@/hooks/useChildren';
+import { api } from '@/lib/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -202,7 +203,7 @@ function generateQuestions(ageMonths: number): Question[] {
 export default function ScreeningQuestionnaire() {
   const { age, childId } = useLocalSearchParams<{ age: string; childId: string }>();
   const ageMonths = parseInt(age || '12', 10);
-  const child = mockChildren.find(c => c.id === childId);
+  const { child } = useChild(childId);
 
   const [questions] = useState(() => generateQuestions(ageMonths));
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -259,7 +260,7 @@ export default function ScreeningQuestionnaire() {
     }
   };
 
-  const completeScreening = () => {
+  const completeScreening = async () => {
     // Calculate scores
     const domainScores: Record<string, { score: number; total: number }> = {};
 
@@ -273,6 +274,34 @@ export default function ScreeningQuestionnaire() {
       });
       domainScores[domain.id] = { score, total: 60 };
     });
+
+    // Submit to API in background (don't block navigation)
+    if (childId) {
+      try {
+        // Create assessment
+        const assessment = await api.post<{ id: string }>('/assessment/', {
+          child_id: childId,
+          questionnaire_version: ageMonths,
+        });
+
+        // Save responses
+        const responseList = Object.entries(responses)
+          .filter(([_, v]) => v !== null)
+          .map(([itemId, value]) => ({
+            item_id: itemId,
+            response: value,
+            notes: null,
+          }));
+
+        await api.post(`/assessment/${assessment.id}/responses`, responseList);
+
+        // Score the assessment
+        await api.post(`/assessment/${assessment.id}/score`);
+      } catch (error) {
+        console.error('Failed to submit assessment:', error);
+        // Continue to results even if API fails - scores were calculated locally
+      }
+    }
 
     // Navigate to results
     router.replace({
@@ -306,7 +335,7 @@ export default function ScreeningQuestionnaire() {
           <X size={24} color="#6b7280" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{child?.first_name}'s Screening</Text>
+          <Text style={styles.headerTitle}>{child?.firstName}'s Screening</Text>
           <Text style={styles.headerSubtitle}>{ageMonths}-Month Questionnaire</Text>
         </View>
         <TouchableOpacity style={styles.helpButton} onPress={() => setShowHelp(true)}>
