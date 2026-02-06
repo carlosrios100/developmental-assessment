@@ -3,13 +3,19 @@ DevAssess API - AI-powered developmental assessment video analysis
 """
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
-from src.routers import video, assessment, reports, health
+from src.routers import video, assessment, reports, health, test_video
+from src.routers import cognitive, behavioral, context, mosaic, analytics
 from src.config import settings
 from src.logging_config import setup_logging, get_logger
+
+STATIC_DIR = Path(__file__).parent.parent / "static"
 
 logger = get_logger(__name__)
 
@@ -62,10 +68,26 @@ app.include_router(video.router, prefix="/api/v1/video", tags=["Video Analysis"]
 app.include_router(assessment.router, prefix="/api/v1/assessment", tags=["Assessment"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["Reports"])
 
+# Test router (NO AUTH) - remove in production
+app.include_router(test_video.router, prefix="/api/v1/test", tags=["Test (No Auth)"])
+
+# Mosaic Protocol routers
+app.include_router(cognitive.router, prefix="/api/v1/cognitive", tags=["Cognitive Assessment"])
+app.include_router(behavioral.router, prefix="/api/v1/behavioral", tags=["Behavioral Assessment"])
+app.include_router(context.router, prefix="/api/v1/context", tags=["Context & Consent"])
+app.include_router(mosaic.router, prefix="/api/v1/mosaic", tags=["Mosaic Protocol"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["District Analytics"])
+
 
 @app.get("/")
 async def root():
-    """Root endpoint."""
+    """Root endpoint - serve test UI."""
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/api")
+async def api_info():
+    """API info endpoint."""
     return {
         "name": "DevAssess API",
         "version": settings.version,
