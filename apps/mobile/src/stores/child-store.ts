@@ -1,6 +1,10 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
-import type { Child, Assessment } from '@devassess/shared';
+import type { Child } from '@devassess/shared';
+import { useAuthStore } from './auth-store';
+
+const DEMO_CHILDREN_KEY = '@devassess/demo_children';
 
 interface ChildState {
   children: Child[];
@@ -26,6 +30,27 @@ export const useChildStore = create<ChildState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
+      const isDemoMode = useAuthStore.getState().isDemoMode;
+
+      if (isDemoMode) {
+        // Demo mode: load from local storage
+        const stored = await AsyncStorage.getItem(DEMO_CHILDREN_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const children: Child[] = parsed.map((row: any) => ({
+            ...row,
+            dateOfBirth: new Date(row.dateOfBirth),
+            createdAt: new Date(row.createdAt),
+            updatedAt: new Date(row.updatedAt),
+          }));
+          set({ children, isLoading: false });
+        } else {
+          set({ children: [], isLoading: false });
+        }
+        return;
+      }
+
+      // Authenticated mode: use Supabase
       const { data, error } = await supabase
         .from('children')
         .select('*')
@@ -33,7 +58,7 @@ export const useChildStore = create<ChildState>((set, get) => ({
 
       if (error) throw error;
 
-      const children: Child[] = (data || []).map((row) => ({
+      const children: Child[] = (data || []).map((row: any) => ({
         id: row.id,
         parentUserId: row.parent_user_id,
         firstName: row.first_name,
@@ -65,6 +90,39 @@ export const useChildStore = create<ChildState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
+      const isDemoMode = useAuthStore.getState().isDemoMode;
+
+      if (isDemoMode) {
+        // Demo mode: use local storage
+        const newChild: Child = {
+          id: `demo_${Date.now()}`,
+          parentUserId: 'demo_user',
+          firstName: childData.firstName,
+          lastName: childData.lastName || '',
+          dateOfBirth: childData.dateOfBirth,
+          gender: childData.gender,
+          prematureWeeks: childData.prematureWeeks || 0,
+          photoUrl: childData.photoUrl,
+          notes: childData.notes,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        const currentChildren = get().children;
+        const updatedChildren = [newChild, ...currentChildren];
+
+        await AsyncStorage.setItem(DEMO_CHILDREN_KEY, JSON.stringify(updatedChildren.map((c) => ({
+          ...c,
+          dateOfBirth: c.dateOfBirth.toISOString(),
+          createdAt: c.createdAt.toISOString(),
+          updatedAt: c.updatedAt.toISOString(),
+        }))));
+
+        set({ children: updatedChildren, isLoading: false });
+        return { error: null, child: newChild };
+      }
+
+      // Authenticated mode: use Supabase
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 

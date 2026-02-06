@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/auth-store';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn, isLoading } = useAuthStore();
+  const { signIn, enterDemoMode, isLoading } = useAuthStore();
   const [error, setError] = useState('');
 
   const handleLogin = async () => {
@@ -23,7 +23,8 @@ export default function LoginScreen() {
     // Navigation happens automatically via auth state change in _layout.tsx
   };
 
-  const handleDemo = () => {
+  const handleDemo = async () => {
+    await enterDemoMode();
     router.replace('/(tabs)');
   };
 

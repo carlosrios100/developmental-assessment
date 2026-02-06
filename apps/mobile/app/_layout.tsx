@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -43,58 +43,54 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
+          {!isAuthenticated && <Redirect href="/(auth)/login" />}
           <Stack
             screenOptions={{
               headerShown: false,
               contentStyle: { backgroundColor: '#ffffff' },
             }}
           >
-            {isAuthenticated ? (
-              <>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="child/[id]"
-                  options={{
-                    headerShown: true,
-                    headerTitle: 'Child Profile',
-                    headerBackTitle: 'Back',
-                  }}
-                />
-                <Stack.Screen
-                  name="child/new"
-                  options={{
-                    headerShown: true,
-                    headerTitle: 'Add Child',
-                    headerBackTitle: 'Back',
-                    presentation: 'modal',
-                  }}
-                />
-                <Stack.Screen
-                  name="assessment/[id]"
-                  options={{
-                    headerShown: true,
-                    headerTitle: 'Assessment',
-                    headerBackTitle: 'Back',
-                    presentation: 'modal',
-                  }}
-                />
-                <Stack.Screen
-                  name="screening/index"
-                  options={{
-                    headerShown: true,
-                    headerTitle: 'Developmental Screener',
-                    headerBackTitle: 'Back',
-                  }}
-                />
-                <Stack.Screen name="screening/[age]" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="screening/results"
-                  options={{ headerShown: false, gestureEnabled: false }}
-                />
-              </>
-            ) : (
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            )}
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="child/[id]"
+              options={{
+                headerShown: true,
+                headerTitle: 'Child Profile',
+                headerBackTitle: 'Back',
+              }}
+            />
+            <Stack.Screen
+              name="child/new"
+              options={{
+                headerShown: true,
+                headerTitle: 'Add Child',
+                headerBackTitle: 'Back',
+                presentation: 'modal',
+              }}
+            />
+            <Stack.Screen
+              name="assessment/[id]"
+              options={{
+                headerShown: true,
+                headerTitle: 'Assessment',
+                headerBackTitle: 'Back',
+                presentation: 'modal',
+              }}
+            />
+            <Stack.Screen
+              name="screening/index"
+              options={{
+                headerShown: true,
+                headerTitle: 'Developmental Screener',
+                headerBackTitle: 'Back',
+              }}
+            />
+            <Stack.Screen name="screening/[age]" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="screening/results"
+              options={{ headerShown: false, gestureEnabled: false }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </SafeAreaProvider>

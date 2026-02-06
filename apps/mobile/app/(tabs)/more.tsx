@@ -14,10 +14,12 @@ import {
   ChevronRight,
   ClipboardList,
   BookOpen,
+  LogOut,
 } from 'lucide-react-native';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface MenuItemProps {
-  icon: React.ComponentType<{ size: number; color: string }>;
+  icon: React.ComponentType<any>;
   title: string;
   subtitle?: string;
   onPress: () => void;
@@ -44,6 +46,26 @@ const MenuItem = ({ icon: Icon, title, subtitle, onPress, color = '#6b7280', bad
 );
 
 export default function MoreScreen() {
+  const { signOut, isDemoMode } = useAuthStore();
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/(auth)/login');
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView}>
@@ -125,6 +147,14 @@ export default function MoreScreen() {
               subtitle="App preferences"
               onPress={() => router.push('/(tabs)/settings')}
               color="#6b7280"
+            />
+            <View style={styles.divider} />
+            <MenuItem
+              icon={LogOut}
+              title="Sign Out"
+              subtitle={isDemoMode ? 'Demo mode' : 'Sign out of your account'}
+              onPress={handleSignOut}
+              color="#ef4444"
             />
           </View>
         </View>

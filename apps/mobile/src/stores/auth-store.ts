@@ -1,12 +1,16 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase, signInWithEmail, signUpWithEmail, signOut as supabaseSignOut } from '@/lib/supabase';
+
+const DEMO_MODE_KEY = '@devassess/demo_mode';
 
 interface AuthState {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isDemoMode: boolean;
 
   // Actions
   initialize: () => Promise<void>;
@@ -14,6 +18,7 @@ interface AuthState {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   setSession: (session: Session | null) => void;
+  enterDemoMode: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -21,9 +26,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   isLoading: true,
   isAuthenticated: false,
+  isDemoMode: false,
 
   initialize: async () => {
     try {
+      // Check for demo mode first
+      const demoMode = await AsyncStorage.getItem(DEMO_MODE_KEY);
+      if (demoMode === 'true') {
+        set({
+          isDemoMode: true,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       set({
         session,
@@ -87,11 +104,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signOut: async () => {
     set({ isLoading: true });
+    await AsyncStorage.removeItem(DEMO_MODE_KEY);
     await supabaseSignOut();
     set({
       session: null,
       user: null,
       isAuthenticated: false,
+      isDemoMode: false,
       isLoading: false,
     });
   },
@@ -101,6 +120,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       session,
       user: session?.user ?? null,
       isAuthenticated: !!session,
+    });
+  },
+
+  enterDemoMode: async () => {
+    await AsyncStorage.setItem(DEMO_MODE_KEY, 'true');
+    set({
+      isDemoMode: true,
+      isAuthenticated: true,
+      isLoading: false,
     });
   },
 }));

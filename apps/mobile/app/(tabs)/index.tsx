@@ -16,7 +16,7 @@ import {
 import { useChildren } from '@/hooks/useChildren';
 import { useRecentAssessments } from '@/hooks/useAssessments';
 import { useVideos } from '@/hooks/useVideos';
-import { calculateAge } from '@/lib/mock-data';
+import { calculateAge } from '@/lib/utils';
 
 function formatTimeAgo(dateString: string): string {
   const now = Date.now();
@@ -299,7 +299,7 @@ function QuickActionButton({
   onPress,
   color,
 }: {
-  icon: React.ComponentType<{ size: number; color: string }>;
+  icon: React.ComponentType<any>;
   label: string;
   onPress: () => void;
   color: string;
