@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import type { Json } from '@devassess/supabase/types/database';
 
 const SETTINGS_STORAGE_KEY = 'devassess_settings';
 
@@ -96,7 +97,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
       await supabase
         .from('profiles')
-        .update({ settings })
+        .update({ settings: settings as unknown as Json })
         .eq('id', user.id);
     } catch (error) {
       // Silently fail - local settings are the source of truth offline

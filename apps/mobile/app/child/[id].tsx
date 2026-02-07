@@ -321,15 +321,15 @@ export default function ChildDetailScreen() {
           <View style={styles.assessmentCard}>
             <View style={styles.assessmentHeader}>
               <Text style={styles.assessmentAge}>{latestAssessment.age_at_assessment} Month Questionnaire</Text>
-              <View style={[styles.riskBadge, { backgroundColor: RISK_COLORS[latestAssessment.overall_risk_level] + '20' }]}>
-                <Text style={[styles.riskText, { color: RISK_COLORS[latestAssessment.overall_risk_level] }]}>
-                  {latestAssessment.overall_risk_level.charAt(0).toUpperCase() + latestAssessment.overall_risk_level.slice(1)}
+              <View style={[styles.riskBadge, { backgroundColor: RISK_COLORS[latestAssessment.overall_risk_level ?? 'typical'] + '20' }]}>
+                <Text style={[styles.riskText, { color: RISK_COLORS[latestAssessment.overall_risk_level ?? 'typical'] }]}>
+                  {(latestAssessment.overall_risk_level ?? 'typical').charAt(0).toUpperCase() + (latestAssessment.overall_risk_level ?? 'typical').slice(1)}
                 </Text>
               </View>
             </View>
 
             <View style={styles.domainScores}>
-              {latestAssessment.domain_scores.map((score) => (
+              {(latestAssessment.domain_scores ?? []).map((score) => (
                 <View key={score.domain} style={styles.domainRow}>
                   <View style={styles.domainInfo}>
                     <View style={[styles.domainDot, { backgroundColor: DOMAIN_COLORS[score.domain] }]} />
@@ -435,12 +435,12 @@ export default function ChildDetailScreen() {
               <View style={styles.historyInfo}>
                 <Text style={styles.historyTitle}>{assessment.age_at_assessment} Month Assessment</Text>
                 <Text style={styles.historyDate}>
-                  {new Date(assessment.completed_at).toLocaleDateString()}
+                  {assessment.completed_at ? new Date(assessment.completed_at).toLocaleDateString() : 'In progress'}
                 </Text>
               </View>
-              <View style={[styles.riskBadge, { backgroundColor: RISK_COLORS[assessment.overall_risk_level] + '20' }]}>
-                <Text style={[styles.riskText, { color: RISK_COLORS[assessment.overall_risk_level] }]}>
-                  {assessment.overall_risk_level}
+              <View style={[styles.riskBadge, { backgroundColor: RISK_COLORS[assessment.overall_risk_level ?? 'typical'] + '20' }]}>
+                <Text style={[styles.riskText, { color: RISK_COLORS[assessment.overall_risk_level ?? 'typical'] }]}>
+                  {assessment.overall_risk_level ?? 'typical'}
                 </Text>
               </View>
             </TouchableOpacity>

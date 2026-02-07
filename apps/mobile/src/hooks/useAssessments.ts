@@ -35,7 +35,7 @@ export function useAssessments(childId?: string) {
         .eq('child_id', childId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Assessment[];
+      return (data ?? []) as unknown as Assessment[];
     },
     enabled: !!childId,
   });
@@ -52,7 +52,7 @@ export function useAssessment(assessmentId?: string) {
         .eq('id', assessmentId)
         .single();
       if (error) throw error;
-      return data as Assessment;
+      return data as unknown as Assessment;
     },
     enabled: !!assessmentId,
   });
@@ -68,7 +68,7 @@ export function useRecentAssessments() {
         .order('created_at', { ascending: false })
         .limit(10);
       if (error) throw error;
-      return (data ?? []) as Assessment[];
+      return (data ?? []) as unknown as Assessment[];
     },
   });
 }

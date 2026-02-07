@@ -21,6 +21,9 @@
       ],
       "@services/*": [
         "./src/services/*"
+      ],
+      "@devassess/supabase/*": [
+        "../../packages/supabase/*"
       ]
     }
   },

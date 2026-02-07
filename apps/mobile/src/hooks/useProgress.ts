@@ -57,23 +57,24 @@ export function useProgress(childId?: string) {
 
         if (prevScores) {
           previousScoresMap = Object.fromEntries(
-            prevScores.map(s => [s.domain, s.percentile])
+            prevScores.map(s => [s.domain, s.percentile ?? 0])
           );
         }
       }
 
       const domains: DomainProgress[] = (latestScores ?? []).map(score => {
+        const percentile = score.percentile ?? 0;
         const previousPercentile = previousScoresMap[score.domain] ?? null;
-        const change = previousPercentile !== null ? score.percentile - previousPercentile : 0;
+        const change = previousPercentile !== null ? percentile - previousPercentile : 0;
         const trend = change > 2 ? 'up' : change < -2 ? 'down' : 'stable';
 
         return {
           domain: score.domain,
-          currentScore: score.percentile,
+          currentScore: percentile,
           previousScore: previousPercentile,
           trend,
           change,
-          percentile: score.percentile,
+          percentile,
         };
       });
 
@@ -82,7 +83,7 @@ export function useProgress(childId?: string) {
         .from('recommendations')
         .select('id, title, domain, created_at')
         .eq('assessment_id', latestId)
-        .eq('type', 'milestone')
+        .eq('type', 'milestone' as any)
         .order('created_at', { ascending: false })
         .limit(5);
 

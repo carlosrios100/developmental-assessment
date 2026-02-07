@@ -249,7 +249,7 @@ export default function ScreeningStartScreen() {
                     {assessment.age_at_assessment}-Month Screening
                   </Text>
                   <Text style={styles.historyDate}>
-                    {new Date(assessment.completed_at).toLocaleDateString()}
+                    {assessment.completed_at ? new Date(assessment.completed_at).toLocaleDateString() : 'In progress'}
                   </Text>
                 </View>
                 <View style={[

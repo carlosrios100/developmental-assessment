@@ -43,6 +43,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       children: {
         Row: {
@@ -84,6 +85,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       assessments: {
         Row: {
@@ -131,6 +133,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       questionnaire_responses: {
         Row: {
@@ -163,6 +166,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       domain_scores: {
         Row: {
@@ -204,6 +208,7 @@ export type Database = {
           monitoring_zone_cutoff?: number
           created_at?: string
         }
+        Relationships: []
       }
       video_uploads: {
         Row: {
@@ -269,6 +274,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       video_analysis_results: {
         Row: {
@@ -304,6 +310,7 @@ export type Database = {
           raw_data?: Json | null
           created_at?: string
         }
+        Relationships: []
       }
       recommendations: {
         Row: {
@@ -345,6 +352,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       milestone_progress: {
         Row: {
@@ -383,6 +391,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       reports: {
         Row: {
@@ -424,7 +433,14 @@ export type Database = {
           expires_at?: string | null
           created_at?: string
         }
+        Relationships: []
       }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
     }
     Enums: {
       user_role: 'parent' | 'caregiver' | 'professional' | 'admin'
@@ -439,6 +455,9 @@ export type Database = {
       report_type: 'parent_summary' | 'professional_detailed' | 'referral' | 'progress_comparison' | 'video_analysis'
       report_format: 'pdf' | 'html' | 'json'
       milestone_status: 'not_started' | 'emerging' | 'achieved'
+    }
+    CompositeTypes: {
+      [_ in never]: never
     }
   }
 }

@@ -17,9 +17,9 @@ import { Calendar, ChevronDown } from 'lucide-react-native';
 import { useChildStore } from '@/stores/child-store';
 
 const GENDER_OPTIONS = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'other', label: 'Other' },
+  { value: 'male' as const, label: 'Male' },
+  { value: 'female' as const, label: 'Female' },
+  { value: 'other' as const, label: 'Other' },
 ];
 
 export default function AddChildScreen() {
@@ -28,7 +28,7 @@ export default function AddChildScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState(new Date());
-  const [gender, setGender] = useState<string>('');
+  const [gender, setGender] = useState<'male' | 'female' | 'other' | 'prefer_not_to_say' | ''>('');
   const [prematureWeeks, setPrematureWeeks] = useState('');
   const [notes, setNotes] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -47,7 +47,7 @@ export default function AddChildScreen() {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       dateOfBirth,
-      gender,
+      gender: gender || undefined,
       prematureWeeks: prematureWeeks ? parseInt(prematureWeeks, 10) : 0,
       notes: notes.trim() || undefined,
     });

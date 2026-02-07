@@ -67,25 +67,26 @@ export default function AssessmentDetailScreen() {
     );
   }
 
-  const completedDate = new Date(assessment.completed_at);
-  const riskColor = RISK_COLORS[assessment.overall_risk_level];
+  const completedDate = assessment.completed_at ? new Date(assessment.completed_at) : null;
+  const riskLevel = assessment.overall_risk_level ?? 'typical';
+  const riskColor = RISK_COLORS[riskLevel];
 
   return (
     <ScrollView style={styles.container}>
       {/* Header Summary */}
       <View style={[styles.header, { backgroundColor: riskColor + '10' }]}>
         <View style={[styles.statusIcon, { backgroundColor: riskColor + '20' }]}>
-          {assessment.overall_risk_level === 'typical' ? (
+          {riskLevel === 'typical' ? (
             <CheckCircle size={32} color={riskColor} />
           ) : (
             <AlertCircle size={32} color={riskColor} />
           )}
         </View>
         <Text style={[styles.statusTitle, { color: riskColor }]}>
-          {assessment.overall_risk_level.charAt(0).toUpperCase() + assessment.overall_risk_level.slice(1)}
+          {riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)}
         </Text>
         <Text style={styles.statusDescription}>
-          {RISK_DESCRIPTIONS[assessment.overall_risk_level]}
+          {RISK_DESCRIPTIONS[riskLevel]}
         </Text>
       </View>
 
@@ -96,7 +97,7 @@ export default function AssessmentDetailScreen() {
             <Calendar size={20} color="#6b7280" />
             <View>
               <Text style={styles.infoLabel}>Completed</Text>
-              <Text style={styles.infoValue}>{completedDate.toLocaleDateString()}</Text>
+              <Text style={styles.infoValue}>{completedDate?.toLocaleDateString() ?? 'In progress'}</Text>
             </View>
           </View>
           <View style={styles.infoItem}>
@@ -123,7 +124,7 @@ export default function AssessmentDetailScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Domain Scores</Text>
 
-        {assessment.domain_scores.map((score) => (
+        {(assessment.domain_scores ?? []).map((score) => (
           <View key={score.domain} style={styles.domainCard}>
             <View style={styles.domainHeader}>
               <View style={[styles.domainIndicator, { backgroundColor: DOMAIN_COLORS[score.domain] }]} />
@@ -174,14 +175,14 @@ export default function AssessmentDetailScreen() {
             Based on the assessment results, here are some suggested next steps:
           </Text>
           <View style={styles.recommendationList}>
-            {assessment.overall_risk_level === 'typical' && (
+            {riskLevel === 'typical' && (
               <>
                 <Text style={styles.recommendationItem}>• Continue age-appropriate play activities</Text>
                 <Text style={styles.recommendationItem}>• Schedule next assessment in 2-4 months</Text>
                 <Text style={styles.recommendationItem}>• Record milestone videos for progress tracking</Text>
               </>
             )}
-            {assessment.overall_risk_level === 'monitoring' && (
+            {riskLevel === 'monitoring' && (
               <>
                 <Text style={styles.recommendationItem}>• Focus on activities for lower-scoring domains</Text>
                 <Text style={styles.recommendationItem}>• Re-assess in 6-8 weeks</Text>
