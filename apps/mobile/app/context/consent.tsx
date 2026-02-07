@@ -1,10 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { Shield, MapPin, Users, ChevronRight, Check, Info } from 'lucide-react-native';
 import { useMosaicStore } from '@/stores/mosaic-store';
 import { useChildStore } from '@/stores/child-store';
+import { api } from '@/lib/api';
 
 interface ConsentCategory {
   id: string;
@@ -72,16 +73,27 @@ export default function ConsentScreen() {
   };
 
   const handleContinue = async () => {
+    if (!currentChild) return;
     setIsSubmitting(true);
     try {
-      // In a real app, we'd save consent preferences to the backend
-      // For now, navigate based on what they've consented to
+      // Grant consent for each enabled category
+      const grantPromises = Object.entries(consents)
+        .filter(([_, enabled]) => enabled)
+        .map(([category]) =>
+          api.post('/context/consent/grant', {
+            child_id: currentChild.id,
+            category,
+          })
+        );
+      await Promise.all(grantPromises);
+
       if (consents.location || consents.family_context) {
         router.push('/context/survey');
       } else {
-        // Skip survey if no context data consent given
         router.back();
       }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save consent preferences. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

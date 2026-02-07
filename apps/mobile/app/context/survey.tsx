@@ -1,10 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { MapPin, Home, Users, GraduationCap, Briefcase, ChevronRight, Check, ChevronLeft } from 'lucide-react-native';
 import { useMosaicStore } from '@/stores/mosaic-store';
 import { useChildStore } from '@/stores/child-store';
+import { api } from '@/lib/api';
 
 type SurveyStep = 'location' | 'household' | 'education' | 'employment' | 'review';
 
@@ -82,13 +83,29 @@ export default function SurveyScreen() {
     }
   };
 
+  const parseHouseholdSize = (size: string | null): number | undefined => {
+    if (!size) return undefined;
+    const map: Record<string, number> = { '1-2': 2, '3-4': 4, '5-6': 6, '7+': 8 };
+    return map[size];
+  };
+
   const handleNext = async () => {
     if (currentStep === 'review') {
+      if (!currentChild) return;
       setIsSubmitting(true);
       try {
-        // In a real app, submit data to backend
-        // await submitFamilyContext({ zipCode, householdSize, housingStatus, parentEducation, employmentStatus });
+        await api.post('/context/family', {
+          child_id: currentChild.id,
+          zip_code: zipCode || undefined,
+          household_size: parseHouseholdSize(householdSize),
+          parent_education_level: parentEducation || undefined,
+        });
         router.replace('/mosaic');
+      } catch (error) {
+        Alert.alert(
+          'Submission Error',
+          error instanceof Error ? error.message : 'Failed to save family context. Please try again.'
+        );
       } finally {
         setIsSubmitting(false);
       }
