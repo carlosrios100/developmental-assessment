@@ -18,19 +18,28 @@ import {
 } from 'lucide-react-native';
 import { useChildren } from '@/hooks/useChildren';
 import { useRecentAssessments } from '@/hooks/useAssessments';
-import { useGenerateReport } from '@/hooks/useReports';
+import { useReports, useGenerateReport } from '@/hooks/useReports';
+import { useChildStore } from '@/stores/child-store';
 import { calculateAge } from '@/lib/utils';
 
-interface Report {
+interface DisplayReport {
   id: string;
   childId: string;
   childName: string;
-  type: 'comprehensive' | 'progress' | 'milestone' | 'video-analysis';
+  type: string;
   title: string;
   generatedAt: string;
   status: 'ready' | 'generating' | 'failed';
   summary?: string;
 }
+
+const REPORT_TYPE_LABELS: Record<string, string> = {
+  parent_summary: 'Comprehensive Report',
+  progress_comparison: 'Progress Report',
+  professional_detailed: 'Milestone Report',
+  video_analysis: 'Video Analysis Report',
+  referral: 'Referral Report',
+};
 
 const REPORT_TYPES = [
   {
@@ -65,21 +74,38 @@ const REPORT_TYPES = [
 
 export default function ReportsScreen() {
   const { children } = useChildren();
+  const { selectedChild: storeChild } = useChildStore();
   const { data: assessments = [] } = useRecentAssessments();
   const generateReportMutation = useGenerateReport();
 
-  const [reports, setReports] = useState<Report[]>([]);
+  // Fetch reports for the selected child (or first child)
+  const activeChildId = storeChild?.id ?? children[0]?.id;
+  const { data: apiReports = [], isLoading: reportsLoading } = useReports(activeChildId);
+
+  // Map API reports to display format
+  const reports: DisplayReport[] = apiReports.map((r) => {
+    const child = children.find((c) => c.id === r.childId);
+    return {
+      id: r.id,
+      childId: r.childId,
+      childName: child?.firstName || 'Unknown',
+      type: r.type,
+      title: REPORT_TYPE_LABELS[r.type] || r.type,
+      generatedAt: r.generatedAt instanceof Date ? r.generatedAt.toISOString() : String(r.generatedAt),
+      status: 'ready' as const,
+      summary: r.content?.sections?.[0]?.content?.substring(0, 200),
+    };
+  });
 
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [selectedReportType, setSelectedReportType] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [selectedReport, setSelectedReport] = useState<DisplayReport | null>(null);
 
   const generateReport = async () => {
     if (!selectedChild || !selectedReportType) return;
 
-    const child = children.find(c => c.id === selectedChild);
     const latestAssessment = assessments.find(a => a.childId === selectedChild);
     if (!latestAssessment) {
       Alert.alert('No Assessment', 'Please complete an assessment first before generating a report.');
@@ -88,7 +114,7 @@ export default function ReportsScreen() {
 
     setGenerating(true);
     try {
-      const report = await generateReportMutation.mutateAsync({
+      await generateReportMutation.mutateAsync({
         assessmentId: latestAssessment.id,
         childId: selectedChild,
         reportType: selectedReportType === 'comprehensive' ? 'parent_summary' :
@@ -96,18 +122,6 @@ export default function ReportsScreen() {
                     selectedReportType === 'video-analysis' ? 'video_analysis' : 'professional_detailed',
       });
 
-      const newReport: Report = {
-        id: report.id,
-        childId: selectedChild,
-        childName: child?.firstName || 'Unknown',
-        type: selectedReportType as Report['type'],
-        title: REPORT_TYPES.find(t => t.id === selectedReportType)?.title || 'Report',
-        generatedAt: report.generatedAt ? report.generatedAt.toISOString() : new Date().toISOString(),
-        status: 'ready',
-        summary: report.content?.sections?.[0]?.content?.substring(0, 200) || 'Report generated successfully.',
-      };
-
-      setReports(prev => [newReport, ...prev]);
       setGenerating(false);
       setShowGenerateModal(false);
       setSelectedChild(null);

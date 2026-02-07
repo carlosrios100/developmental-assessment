@@ -37,8 +37,7 @@ export function useReports(childId?: string) {
   return useQuery({
     queryKey: ['reports', childId],
     queryFn: async () => {
-      const path = childId ? `/reports/child/${childId}` : '/reports/child/all';
-      const data = await api.get<any[]>(path);
+      const data = await api.get<any[]>(`/reports/child/${childId}`);
       return data.map(transformReport);
     },
     enabled: !!childId,
