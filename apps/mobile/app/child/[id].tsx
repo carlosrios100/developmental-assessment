@@ -376,7 +376,7 @@ export default function ChildDetailScreen() {
         {videos.length > 0 ? (
           <View style={styles.videosList}>
             {videos.map((video) => (
-              <View key={video.id} style={styles.videoCard}>
+              <TouchableOpacity key={video.id} style={styles.videoCard} onPress={() => router.push(`/video/${video.id}` as any)}>
                 <View style={styles.videoThumbnail}>
                   <Play size={24} color="#6b7280" />
                 </View>
@@ -404,7 +404,7 @@ export default function ChildDetailScreen() {
                     {video.processingStatus === 'completed' ? 'Analyzed' : 'Processing'}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         ) : (

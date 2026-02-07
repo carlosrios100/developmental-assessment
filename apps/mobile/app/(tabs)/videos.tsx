@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Alert, Modal, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import {
   Video,
@@ -379,7 +380,7 @@ function VideoCard({
   const { icon: StatusIcon, color, label } = statusConfig[video.status];
 
   return (
-    <TouchableOpacity style={styles.videoCard}>
+    <TouchableOpacity style={styles.videoCard} onPress={() => router.push(`/video/${video.id}` as any)}>
       <View style={styles.videoCardContent}>
         {/* Thumbnail */}
         <View style={styles.thumbnail}>
