@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { TrendingUp, TrendingDown, Minus, ChevronDown } from 'lucide-react-native';
+import { TrendingUp, TrendingDown, Minus, ChevronDown, Star, Target } from 'lucide-react-native';
 import { useState, useEffect } from 'react';
 import { useChildren } from '@/hooks/useChildren';
 import { useProgress } from '@/hooks/useProgress';
@@ -31,6 +31,13 @@ export default function ProgressScreen() {
     description: m.description,
     achievedAt: m.achievedAt,
     domain: m.domain.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+  }));
+
+  const upcomingMilestones = (progressData?.upcoming ?? []).map(m => ({
+    id: m.id,
+    description: m.description,
+    domain: m.domain.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+    ageMonths: m.ageMonths,
   }));
 
   return (
@@ -141,7 +148,7 @@ export default function ProgressScreen() {
                 ]}
               >
                 <View style={styles.milestoneIcon}>
-                  <TrendingUp size={16} color="#22c55e" />
+                  <Star size={16} color="#22c55e" />
                 </View>
                 <View style={styles.milestoneContent}>
                   <Text style={styles.milestoneDescription}>
@@ -159,6 +166,39 @@ export default function ProgressScreen() {
             ))}
           </View>
         </View>
+
+        {/* Upcoming Milestones */}
+        {upcomingMilestones.length > 0 && (
+          <View style={styles.upcomingSection}>
+            <Text style={styles.sectionTitle}>
+              Coming Up Next
+            </Text>
+
+            <View style={styles.milestonesCard}>
+              {upcomingMilestones.map((milestone, index) => (
+                <View
+                  key={milestone.id}
+                  style={[
+                    styles.milestoneItem,
+                    index < upcomingMilestones.length - 1 ? styles.milestoneItemBorder : undefined,
+                  ]}
+                >
+                  <View style={styles.upcomingIcon}>
+                    <Target size={16} color="#3b82f6" />
+                  </View>
+                  <View style={styles.milestoneContent}>
+                    <Text style={styles.milestoneDescription}>
+                      {milestone.description}
+                    </Text>
+                    <Text style={styles.milestoneMeta}>
+                      {milestone.domain} • ~{milestone.ageMonths} months
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -320,7 +360,16 @@ const styles = StyleSheet.create({
   milestonesSection: {
     paddingHorizontal: 24,
     marginTop: 24,
+  },
+  upcomingSection: {
+    paddingHorizontal: 24,
+    marginTop: 24,
     marginBottom: 32,
+  },
+  upcomingIcon: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 9999,
+    padding: 8,
   },
   milestonesCard: {
     backgroundColor: '#ffffff',
