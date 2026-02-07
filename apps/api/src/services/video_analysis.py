@@ -3,6 +3,7 @@ import os
 import uuid
 import subprocess
 import tempfile
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -28,12 +29,128 @@ from src.logging_config import get_logger
 logger = get_logger(__name__)
 
 
+# ===========================================================================
+# Detection Thresholds Configuration
+# ===========================================================================
+# These thresholds are tunable parameters for the video analysis algorithms.
+# Default values are reasonable starting points but may need calibration
+# with real developmental assessment videos.
+# ===========================================================================
+
+@dataclass
+class DetectionThresholds:
+    """
+    Configurable thresholds for video analysis detection algorithms.
+
+    All spatial thresholds use normalized coordinates (0-1 range) where
+    the image dimensions are normalized to unit square.
+    """
+
+    # -----------------------------------------------------------------------
+    # MediaPipe Detection Confidence
+    # -----------------------------------------------------------------------
+    # Minimum confidence for pose and face mesh detection (0-1)
+    # Lower = more detections but more false positives
+    # Higher = fewer detections but more reliable
+    mediapipe_min_confidence: float = 0.5
+
+    # -----------------------------------------------------------------------
+    # Forward Gaze / Eye Contact Detection
+    # -----------------------------------------------------------------------
+    # Iris position ratio within eye (0=outer corner, 1=inner corner)
+    # Forward gaze detected when ratio is within this range (centered)
+    gaze_ratio_min: float = 0.35  # Lower bound for "centered" iris
+    gaze_ratio_max: float = 0.65  # Upper bound for "centered" iris
+
+    # -----------------------------------------------------------------------
+    # Smile Detection
+    # -----------------------------------------------------------------------
+    # Mouth width relative to face width (eye-to-eye distance)
+    # Typical neutral mouth ~0.30, smile ~0.40+
+    smile_width_ratio: float = 0.35
+
+    # Mouth corner elevation relative to mouth center (normalized coords)
+    # Positive = corners higher than center (smile)
+    smile_corner_elevation: float = 0.01
+
+    # -----------------------------------------------------------------------
+    # Gaze Shift Detection
+    # -----------------------------------------------------------------------
+    # Minimum iris position change to count as a gaze shift (normalized)
+    # ~0.02 = small but intentional shift, filters out noise/jitter
+    gaze_shift_threshold: float = 0.02
+
+    # -----------------------------------------------------------------------
+    # Movement Onset Detection
+    # -----------------------------------------------------------------------
+    # Minimum velocity to consider "moving" vs "still" (normalized/frame)
+    movement_onset_velocity: float = 0.005
+
+    # -----------------------------------------------------------------------
+    # Midline Crossing Detection
+    # -----------------------------------------------------------------------
+    # How far past midline a wrist must go to count as crossing (normalized)
+    # 0.05 = ~5% of frame width past center
+    midline_crossing_offset: float = 0.05
+
+    # -----------------------------------------------------------------------
+    # Turn-Taking Detection (Vocalization Gaps)
+    # -----------------------------------------------------------------------
+    # Gap duration range (seconds) that suggests turn-taking
+    # Too short = just a pause; too long = conversation ended
+    turn_taking_min_gap: float = 0.8   # Minimum gap (seconds)
+    turn_taking_max_gap: float = 5.0   # Maximum gap (seconds)
+
+    # -----------------------------------------------------------------------
+    # Bilateral Coordination
+    # -----------------------------------------------------------------------
+    # Velocity threshold for "moving" in simultaneous movement calculation
+    bilateral_movement_threshold: float = 0.001
+
+    # Weights for bilateral coordination score components
+    bilateral_arm_weight: float = 0.4
+    bilateral_leg_weight: float = 0.3
+    bilateral_simultaneous_weight: float = 0.3
+
+    # -----------------------------------------------------------------------
+    # Responsiveness Proxy Normalization
+    # -----------------------------------------------------------------------
+    # Expected rates per minute for normalization (empirical estimates)
+    # Score = (actual_rate / expected_max_rate), capped at 1.0
+    responsiveness_gaze_rate_max: float = 30.0    # Gaze shifts per minute
+    responsiveness_movement_rate_max: float = 15.0  # Movement onsets per minute
+
+    # Weights for responsiveness score components
+    responsiveness_gaze_weight: float = 0.6
+    responsiveness_movement_weight: float = 0.4
+
+    # -----------------------------------------------------------------------
+    # Movement Quality Classification
+    # -----------------------------------------------------------------------
+    # Velocity standard deviation thresholds for quality labels
+    # Lower variance = smoother movement
+    movement_quality_smooth: float = 0.01      # Below = "smooth"
+    movement_quality_coordinated: float = 0.03  # Below = "coordinated"
+    movement_quality_jerky: float = 0.05       # Below = "jerky", above = "uncoordinated"
+
+    # -----------------------------------------------------------------------
+    # Audio Voice Activity Detection
+    # -----------------------------------------------------------------------
+    # Minimum RMS energy threshold (prevents silence triggering detection)
+    audio_min_rms_threshold: float = 0.01
+
+
+# Default thresholds instance - can be overridden for testing or calibration
+DEFAULT_THRESHOLDS = DetectionThresholds()
+
+
 class VideoAnalysisService:
     """Service for video upload, processing, and AI analysis."""
 
-    def __init__(self):
+    def __init__(self, thresholds: DetectionThresholds | None = None):
         self.supabase = get_supabase_client()
         self.storage = get_storage_client()
+        self.thresholds = thresholds or DEFAULT_THRESHOLDS
 
         # Initialize MediaPipe
         self.mp_pose = mp.solutions.pose
@@ -74,7 +191,7 @@ class VideoAnalysisService:
             extra={
                 "video_id": video_id,
                 "child_id": child_id,
-                "filename": filename,
+                "file_name": filename,
                 "file_size": len(file_contents),
                 "uploaded_by_user_id": uploaded_by_user_id,
             },
@@ -212,6 +329,13 @@ class VideoAnalysisService:
                 "positions": [],
                 "velocities": [],
                 "pose_stability": [],
+                # Bilateral coordination tracking
+                "left_wrist_positions": [],
+                "right_wrist_positions": [],
+                "left_ankle_positions": [],
+                "right_ankle_positions": [],
+                # Midline crossing tracking
+                "midline_crossings": [],
             }
             interaction_data = {
                 "face_detections": [],
@@ -220,15 +344,27 @@ class VideoAnalysisService:
                 "eye_contact_events": [],       # list of (start, end) tuples
                 "_eye_contact_ongoing": False,
                 "_eye_contact_start": None,
+                # Smile/positive affect tracking
+                "smile_frames": [],
+                "smile_events": [],             # list of (start, end) tuples
+                "_smile_ongoing": False,
+                "_smile_start": None,
+                # Responsiveness tracking
+                "gaze_shifts": [],
+                "movement_onsets": [],
+                "previous_iris_position": None,
+                "_previous_moving": False,
             }
 
             # Process frames
             frame_interval = max(1, int(fps / 5))  # Analyze 5 frames per second
             frame_idx = 0
 
-            with self.mp_pose.Pose(min_detection_confidence=0.5) as pose:
+            with self.mp_pose.Pose(
+                min_detection_confidence=self.thresholds.mediapipe_min_confidence
+            ) as pose:
                 with self.mp_face_mesh.FaceMesh(
-                    min_detection_confidence=0.5,
+                    min_detection_confidence=self.thresholds.mediapipe_min_confidence,
                     refine_landmarks=True,
                 ) as face_mesh:
                     while cap.isOpened():
@@ -263,6 +399,11 @@ class VideoAnalysisService:
                                     analysis_types,
                                 )
 
+                            # Track movement onset for responsiveness
+                            self._track_movement_onset(
+                                movement_data, interaction_data, timestamp
+                            )
+
                             interaction_data["total_analyzed_frames"] += 1
 
                         frame_idx += 1
@@ -274,6 +415,13 @@ class VideoAnalysisService:
                 last_ts = (frame_idx - 1) / fps if fps > 0 else 0
                 interaction_data["eye_contact_events"].append(
                     (interaction_data["_eye_contact_start"], last_ts)
+                )
+
+            # Close any ongoing smile event
+            if interaction_data["_smile_ongoing"]:
+                last_ts = (frame_idx - 1) / fps if fps > 0 else 0
+                interaction_data["smile_events"].append(
+                    (interaction_data["_smile_start"], last_ts)
                 )
 
             logger.info(
@@ -377,6 +525,39 @@ class VideoAnalysisService:
             )
             movement_data["velocities"].append(velocity)
 
+        # Track limb positions for bilateral coordination
+        left_wrist = landmarks[15]
+        right_wrist = landmarks[16]
+        left_ankle = landmarks[27]
+        right_ankle = landmarks[28]
+
+        movement_data["left_wrist_positions"].append(
+            (timestamp, np.array([left_wrist.x, left_wrist.y]))
+        )
+        movement_data["right_wrist_positions"].append(
+            (timestamp, np.array([right_wrist.x, right_wrist.y]))
+        )
+        movement_data["left_ankle_positions"].append(
+            (timestamp, np.array([left_ankle.x, left_ankle.y]))
+        )
+        movement_data["right_ankle_positions"].append(
+            (timestamp, np.array([right_ankle.x, right_ankle.y]))
+        )
+
+        # Check for midline crossing
+        shoulder_midline = (landmarks[11].x + landmarks[12].x) / 2
+        crossing_offset = self.thresholds.midline_crossing_offset
+        # Left wrist crossing to right of midline
+        if left_wrist.x > shoulder_midline + crossing_offset:
+            movement_data["midline_crossings"].append(
+                (timestamp, "left_wrist_right")
+            )
+        # Right wrist crossing to left of midline
+        if right_wrist.x < shoulder_midline - crossing_offset:
+            movement_data["midline_crossings"].append(
+                (timestamp, "right_wrist_left")
+            )
+
         # Check for specific movements
         if BehaviorType.MOVEMENT_QUALITY in analysis_types:
             # Detect coordinated movement
@@ -445,6 +626,23 @@ class VideoAnalysisService:
                             (interaction_data["_eye_contact_start"], timestamp)
                         )
 
+            # Detect smiles for positive affect
+            is_smiling = self._detect_smile(face_landmarks)
+            if is_smiling:
+                interaction_data["smile_frames"].append(timestamp)
+                if not interaction_data["_smile_ongoing"]:
+                    interaction_data["_smile_ongoing"] = True
+                    interaction_data["_smile_start"] = timestamp
+            else:
+                if interaction_data["_smile_ongoing"]:
+                    interaction_data["_smile_ongoing"] = False
+                    interaction_data["smile_events"].append(
+                        (interaction_data["_smile_start"], timestamp)
+                    )
+
+            # Track gaze shifts for responsiveness
+            self._track_gaze_shift(face_landmarks, timestamp, interaction_data)
+
     def _detect_forward_gaze(self, face_landmarks: Any) -> bool:
         """
         Determine whether the subject is looking roughly at the camera
@@ -475,10 +673,121 @@ class VideoAnalysisService:
         right_ratio = (right_iris_x - right_outer_x) / right_eye_width
 
         # Both irises should be centered (ratio ~0.5) for forward gaze
-        left_centered = 0.35 <= left_ratio <= 0.65
-        right_centered = 0.35 <= right_ratio <= 0.65
+        gaze_min = self.thresholds.gaze_ratio_min
+        gaze_max = self.thresholds.gaze_ratio_max
+        left_centered = gaze_min <= left_ratio <= gaze_max
+        right_centered = gaze_min <= right_ratio <= gaze_max
 
         return left_centered and right_centered
+
+    def _detect_smile(self, face_landmarks: Any) -> bool:
+        """
+        Detect smiling using mouth corner landmarks.
+
+        FaceMesh mouth landmarks:
+        - 61: left mouth corner
+        - 291: right mouth corner
+        - 13: upper lip center
+        - 14: lower lip center
+        - 0: upper lip top center (philtrum)
+
+        A smile is detected when:
+        1. Mouth corners are elevated relative to mouth center
+        2. Mouth width is increased
+        """
+        lm = face_landmarks.landmark
+
+        # Mouth corner positions
+        left_corner = lm[61]
+        right_corner = lm[291]
+
+        # Mouth center references
+        upper_lip = lm[13]
+        lower_lip = lm[14]
+        mouth_center_y = (upper_lip.y + lower_lip.y) / 2
+
+        # Calculate mouth width (normalized by face width using outer eye corners)
+        mouth_width = abs(right_corner.x - left_corner.x)
+        face_width = abs(lm[self.RIGHT_EYE_OUTER].x - lm[self.LEFT_EYE_OUTER].x)
+        if face_width < 1e-6:
+            return False
+        width_ratio = mouth_width / face_width
+
+        # Calculate corner elevation (negative y means higher on screen)
+        # Corners should be higher (lower y) than mouth center for a smile
+        left_elevation = mouth_center_y - left_corner.y
+        right_elevation = mouth_center_y - right_corner.y
+        avg_elevation = (left_elevation + right_elevation) / 2
+
+        # Smile detection thresholds
+        # Width ratio > threshold indicates wider mouth (typical smile)
+        # Elevation > threshold indicates corners pulled up
+        is_wide = width_ratio > self.thresholds.smile_width_ratio
+        corners_up = avg_elevation > self.thresholds.smile_corner_elevation
+
+        return is_wide and corners_up
+
+    def _track_gaze_shift(
+        self,
+        face_landmarks: Any,
+        timestamp: float,
+        interaction_data: dict,
+    ):
+        """
+        Track gaze shifts by monitoring iris position changes.
+
+        A gaze shift is detected when the iris position changes
+        significantly from the previous frame.
+        """
+        lm = face_landmarks.landmark
+
+        # Calculate average iris position (both eyes)
+        left_iris_x = np.mean([lm[i].x for i in self.LEFT_IRIS])
+        left_iris_y = np.mean([lm[i].y for i in self.LEFT_IRIS])
+        right_iris_x = np.mean([lm[i].x for i in self.RIGHT_IRIS])
+        right_iris_y = np.mean([lm[i].y for i in self.RIGHT_IRIS])
+
+        current_position = np.array([
+            (left_iris_x + right_iris_x) / 2,
+            (left_iris_y + right_iris_y) / 2,
+        ])
+
+        previous = interaction_data["previous_iris_position"]
+        if previous is not None:
+            # Calculate shift magnitude
+            shift = np.linalg.norm(current_position - previous)
+            # Threshold for significant gaze shift (normalized coordinates)
+            if shift > self.thresholds.gaze_shift_threshold:
+                interaction_data["gaze_shifts"].append(timestamp)
+
+        interaction_data["previous_iris_position"] = current_position
+
+    def _track_movement_onset(
+        self,
+        movement_data: dict,
+        interaction_data: dict,
+        timestamp: float,
+    ):
+        """
+        Track movement onsets (transitions from stillness to movement).
+
+        Used as a proxy for responsiveness to cues.
+        """
+        velocities = movement_data.get("velocities", [])
+        if len(velocities) < 2:
+            return
+
+        current_velocity = velocities[-1]
+        # Threshold for "moving" state
+        is_moving = current_velocity > self.thresholds.movement_onset_velocity
+
+        was_moving = interaction_data.get("_previous_moving", False)
+
+        # Detect onset: transition from still to moving
+        if is_moving and not was_moving:
+            interaction_data["movement_onsets"].append(timestamp)
+
+        interaction_data["_previous_moving"] = is_moving
 
     # ------------------------------------------------------------------
     # Audio analysis helpers
@@ -496,6 +805,7 @@ class VideoAnalysisService:
         audio_result: dict[str, Any] = {
             "vocalizations": 0,
             "vocalization_duration": 0.0,
+            "vocalization_segments": [],  # (start, end) tuples for turn-taking
         }
 
         wav_path = None
@@ -566,7 +876,7 @@ class VideoAnalysisService:
             threshold = rms_median + 1.5 * rms_std
 
             # Minimum threshold to avoid pure-silence videos triggering
-            threshold = max(threshold, 0.01)
+            threshold = max(threshold, self.thresholds.audio_min_rms_threshold)
 
             # Boolean mask of frames above threshold
             voice_active = rms > threshold
@@ -577,25 +887,33 @@ class VideoAnalysisService:
             # Count distinct vocalization segments (contiguous runs of True)
             vocalization_count = 0
             total_vocal_duration = 0.0
+            vocalization_segments = []
             in_segment = False
+            segment_start_time = 0.0
 
             for i, active in enumerate(voice_active):
                 if active and not in_segment:
                     in_segment = True
                     segment_start = i
+                    segment_start_time = i * frame_duration
                     vocalization_count += 1
                 elif not active and in_segment:
                     in_segment = False
-                    segment_length = (i - segment_start) * frame_duration
+                    segment_end_time = i * frame_duration
+                    segment_length = segment_end_time - segment_start_time
                     total_vocal_duration += segment_length
+                    vocalization_segments.append((segment_start_time, segment_end_time))
 
             # Close a final open segment
             if in_segment:
-                segment_length = (len(voice_active) - segment_start) * frame_duration
+                segment_end_time = len(voice_active) * frame_duration
+                segment_length = segment_end_time - segment_start_time
                 total_vocal_duration += segment_length
+                vocalization_segments.append((segment_start_time, segment_end_time))
 
             audio_result["vocalizations"] = vocalization_count
             audio_result["vocalization_duration"] = round(total_vocal_duration, 2)
+            audio_result["vocalization_segments"] = vocalization_segments
 
             logger.info(
                 "Audio analysis complete",
@@ -643,6 +961,166 @@ class VideoAnalysisService:
         return abs(left_wrist.y - right_wrist.y) < 0.2
 
     # ------------------------------------------------------------------
+    # Metrics calculation helpers
+    # ------------------------------------------------------------------
+
+    def _calculate_bilateral_coordination(self, movement_data: dict) -> float:
+        """
+        Calculate bilateral coordination score (0-1).
+
+        Analyzes symmetry between left/right limb movements:
+        - Arm symmetry: correlation between left/right wrist velocities
+        - Leg symmetry: correlation between left/right ankle velocities
+        - Simultaneous movement: ratio of frames where both sides move together
+
+        Score = arm_weight * arm_symmetry + leg_weight * leg_symmetry + sim_weight * simultaneous_ratio
+        """
+        left_wrist = movement_data.get("left_wrist_positions", [])
+        right_wrist = movement_data.get("right_wrist_positions", [])
+        left_ankle = movement_data.get("left_ankle_positions", [])
+        right_ankle = movement_data.get("right_ankle_positions", [])
+
+        if len(left_wrist) < 3:
+            return 0.5  # Not enough data, return neutral
+
+        # Store threshold for use in nested function
+        movement_threshold = self.thresholds.bilateral_movement_threshold
+
+        def calculate_velocities(positions: list) -> list:
+            """Calculate velocities from position list."""
+            velocities = []
+            for i in range(1, len(positions)):
+                dt = positions[i][0] - positions[i - 1][0]
+                if dt > 0:
+                    displacement = np.linalg.norm(
+                        positions[i][1] - positions[i - 1][1]
+                    )
+                    velocities.append(displacement / dt)
+            return velocities
+
+        def calculate_correlation(v1: list, v2: list) -> float:
+            """Calculate correlation between two velocity series."""
+            if len(v1) < 2 or len(v2) < 2:
+                return 0.5
+            min_len = min(len(v1), len(v2))
+            v1_arr = np.array(v1[:min_len])
+            v2_arr = np.array(v2[:min_len])
+
+            # Handle constant arrays
+            if np.std(v1_arr) < 1e-6 or np.std(v2_arr) < 1e-6:
+                return 0.5
+
+            corr = np.corrcoef(v1_arr, v2_arr)[0, 1]
+            if np.isnan(corr):
+                return 0.5
+            # Convert correlation (-1 to 1) to score (0 to 1)
+            return (corr + 1) / 2
+
+        def calculate_simultaneous_ratio(v1: list, v2: list) -> float:
+            """Calculate ratio of frames where both limbs are moving."""
+            if len(v1) < 1 or len(v2) < 1:
+                return 0.5
+            min_len = min(len(v1), len(v2))
+            both_moving = sum(
+                1 for i in range(min_len)
+                if v1[i] > movement_threshold and v2[i] > movement_threshold
+            )
+            return both_moving / min_len if min_len > 0 else 0.5
+
+        # Calculate velocities for each limb
+        left_wrist_vel = calculate_velocities(left_wrist)
+        right_wrist_vel = calculate_velocities(right_wrist)
+        left_ankle_vel = calculate_velocities(left_ankle)
+        right_ankle_vel = calculate_velocities(right_ankle)
+
+        # Calculate component scores
+        arm_symmetry = calculate_correlation(left_wrist_vel, right_wrist_vel)
+        leg_symmetry = calculate_correlation(left_ankle_vel, right_ankle_vel)
+
+        # Simultaneous movement ratio (arms)
+        simultaneous_ratio = calculate_simultaneous_ratio(
+            left_wrist_vel, right_wrist_vel
+        )
+
+        # Weighted combination
+        score = (
+            self.thresholds.bilateral_arm_weight * arm_symmetry +
+            self.thresholds.bilateral_leg_weight * leg_symmetry +
+            self.thresholds.bilateral_simultaneous_weight * simultaneous_ratio
+        )
+
+        return max(0.0, min(1.0, score))
+
+    def _estimate_turn_taking(self, vocalization_segments: list) -> int:
+        """
+        Estimate turn-taking instances from vocalization patterns.
+
+        Looks for vocalization-gap-vocalization patterns where the gap
+        is between 0.8 and 5 seconds, which may indicate waiting for
+        a caregiver response.
+
+        Note: This is a proxy metric. Cannot confirm gap contains
+        actual caregiver speech.
+        """
+        if len(vocalization_segments) < 2:
+            return 0
+
+        turn_taking_count = 0
+        min_gap = self.thresholds.turn_taking_min_gap
+        max_gap = self.thresholds.turn_taking_max_gap
+
+        for i in range(1, len(vocalization_segments)):
+            prev_end = vocalization_segments[i - 1][1]
+            curr_start = vocalization_segments[i][0]
+            gap = curr_start - prev_end
+
+            if min_gap <= gap <= max_gap:
+                turn_taking_count += 1
+
+        return turn_taking_count
+
+    def _calculate_responsiveness_proxy(
+        self, interaction_data: dict, duration: float
+    ) -> float:
+        """
+        Calculate responsiveness proxy score (0-1).
+
+        Based on behavioral state change frequency:
+        - Gaze shifts indicate visual attention changes
+        - Movement onsets indicate motor response initiation
+
+        Score normalized by video duration.
+
+        Note: This is a proxy metric. Measures behavioral variability,
+        not true responsiveness to caregiver cues.
+        """
+        if duration <= 0:
+            return 0.5
+
+        gaze_shifts = len(interaction_data.get("gaze_shifts", []))
+        movement_onsets = len(interaction_data.get("movement_onsets", []))
+
+        # Calculate rates per minute
+        minutes = duration / 60.0
+        if minutes < 0.1:
+            minutes = 0.1  # Avoid division issues for very short videos
+
+        gaze_rate = gaze_shifts / minutes
+        movement_rate = movement_onsets / minutes
+
+        # Normalize rates to 0-1 scale using configured max rates
+        gaze_score = min(1.0, gaze_rate / self.thresholds.responsiveness_gaze_rate_max)
+        movement_score = min(1.0, movement_rate / self.thresholds.responsiveness_movement_rate_max)
+
+        # Combined score with configurable weighting
+        score = (
+            self.thresholds.responsiveness_gaze_weight * gaze_score +
+            self.thresholds.responsiveness_movement_weight * movement_score
+        )
+
+        return max(0.0, min(1.0, score))
+
+    # ------------------------------------------------------------------
     # Metrics calculation
     # ------------------------------------------------------------------
 
@@ -655,21 +1133,27 @@ class VideoAnalysisService:
         velocity_std = np.std(velocities) if velocities else 0
 
         # Determine movement quality based on velocity variance
-        if velocity_std < 0.01:
+        if velocity_std < self.thresholds.movement_quality_smooth:
             quality = "smooth"
-        elif velocity_std < 0.03:
+        elif velocity_std < self.thresholds.movement_quality_coordinated:
             quality = "coordinated"
-        elif velocity_std < 0.05:
+        elif velocity_std < self.thresholds.movement_quality_jerky:
             quality = "jerky"
         else:
             quality = "uncoordinated"
+
+        # Calculate bilateral coordination from limb tracking data
+        bilateral_coordination = self._calculate_bilateral_coordination(movement_data)
+
+        # Check if any midline crossings were detected
+        crossing_midline = len(movement_data.get("midline_crossings", [])) > 0
 
         return MovementMetrics(
             distance_traversed=float(distance),
             movement_quality=quality,
             posture_stability=max(0, min(1, 1 - velocity_std * 10)),
-            bilateral_coordination=0.7,  # Placeholder
-            crossing_midline=False,
+            bilateral_coordination=bilateral_coordination,
+            crossing_midline=crossing_midline,
             average_speed=float(avg_speed),
         )
 
@@ -697,9 +1181,26 @@ class VideoAnalysisService:
         # Audio metrics
         vocalizations = 0
         vocalization_duration = 0.0
+        vocalization_segments = []
         if audio_data:
             vocalizations = audio_data.get("vocalizations", 0)
             vocalization_duration = audio_data.get("vocalization_duration", 0.0)
+            vocalization_segments = audio_data.get("vocalization_segments", [])
+
+        # Count positive affect instances from smile events
+        smile_events = interaction_data.get("smile_events", [])
+        positive_affect_instances = len(smile_events)
+
+        # Calculate responsiveness proxy score
+        responsiveness_to_cues = self._calculate_responsiveness_proxy(
+            interaction_data, duration
+        )
+
+        # Estimate turn-taking from vocalization patterns
+        turn_taking_instances = self._estimate_turn_taking(vocalization_segments)
+
+        # proximity_to_caregiver remains 0 - requires multi-person tracking
+        # not currently available
 
         return InteractionMetrics(
             eye_contact_duration=eye_contact_duration,
@@ -707,10 +1208,10 @@ class VideoAnalysisService:
             joint_attention_episodes=len(interaction_data.get("face_detections", [])) // 10,
             vocalizations=vocalizations,
             vocalization_duration=vocalization_duration,
-            positive_affect_instances=0,
-            responsiveness_to_cues=0.5,
-            turn_taking_instances=0,
-            proximity_to_caregiver=0,
+            positive_affect_instances=positive_affect_instances,
+            responsiveness_to_cues=responsiveness_to_cues,
+            turn_taking_instances=turn_taking_instances,
+            proximity_to_caregiver=0,  # Requires multi-person tracking
         )
 
     # ------------------------------------------------------------------

@@ -19,7 +19,7 @@ import {
 import { useChildren } from '@/hooks/useChildren';
 import { useRecentAssessments } from '@/hooks/useAssessments';
 import { useGenerateReport } from '@/hooks/useReports';
-import { calculateAge } from '@/lib/mock-data';
+import { calculateAge } from '@/lib/utils';
 
 interface Report {
   id: string;

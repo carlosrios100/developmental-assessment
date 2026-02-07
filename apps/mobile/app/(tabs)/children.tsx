@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Plus, Baby, ChevronRight } from 'lucide-react-native';
 import { useChildren } from '@/hooks/useChildren';
 import { useRecentAssessments } from '@/hooks/useAssessments';
-import { calculateAge } from '@/lib/mock-data';
+import { calculateAge } from '@/lib/utils';
 
 export default function ChildrenScreen() {
   const { children, isLoading, error } = useChildren();

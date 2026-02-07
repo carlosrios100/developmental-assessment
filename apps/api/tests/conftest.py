@@ -1,6 +1,12 @@
 """Test fixtures and configuration."""
+import sys
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
+
+# Mock xhtml2pdf before importing app (it requires pycairo which may not be installed)
+sys.modules['xhtml2pdf'] = MagicMock()
+sys.modules['xhtml2pdf.pisa'] = MagicMock()
+
 from fastapi.testclient import TestClient
 
 from src.main import app

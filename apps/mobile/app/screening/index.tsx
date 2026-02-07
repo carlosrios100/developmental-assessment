@@ -14,7 +14,7 @@ import {
 } from 'lucide-react-native';
 import { useChildren } from '@/hooks/useChildren';
 import { useRecentAssessments } from '@/hooks/useAssessments';
-import { calculateAge } from '@/lib/mock-data';
+import { calculateAge } from '@/lib/utils';
 
 const AGE_INTERVALS = [2, 4, 6, 8, 9, 10, 12, 14, 16, 18, 20, 22, 24, 27, 30, 33, 36, 42, 48, 54, 60];
 

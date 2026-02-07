@@ -1,4 +1,6 @@
 """Assessment router."""
+from functools import lru_cache
+
 from fastapi import APIRouter, HTTPException, Depends
 
 from src.models.assessment import (
@@ -12,13 +14,19 @@ from src.services.assessment import AssessmentService
 from src.middleware.auth import get_current_user, CurrentUser
 
 router = APIRouter()
-assessment_service = AssessmentService()
+
+
+@lru_cache
+def get_assessment_service() -> AssessmentService:
+    """Get cached assessment service instance."""
+    return AssessmentService()
 
 
 @router.post("/", response_model=AssessmentResponse)
 async def create_assessment(
     request: AssessmentCreate,
     current_user: CurrentUser = Depends(get_current_user),
+    assessment_service: AssessmentService = Depends(get_assessment_service),
 ):
     """Create a new assessment for a child."""
     try:
@@ -36,6 +44,7 @@ async def create_assessment(
 async def get_assessment(
     assessment_id: str,
     current_user: CurrentUser = Depends(get_current_user),
+    assessment_service: AssessmentService = Depends(get_assessment_service),
 ):
     """Get assessment by ID."""
     try:
@@ -54,6 +63,7 @@ async def save_responses(
     assessment_id: str,
     responses: list[QuestionnaireResponseCreate],
     current_user: CurrentUser = Depends(get_current_user),
+    assessment_service: AssessmentService = Depends(get_assessment_service),
 ):
     """Save questionnaire responses for an assessment."""
     try:
@@ -67,6 +77,7 @@ async def save_responses(
 async def score_assessment(
     assessment_id: str,
     current_user: CurrentUser = Depends(get_current_user),
+    assessment_service: AssessmentService = Depends(get_assessment_service),
 ):
     """
     Calculate scores for a completed assessment.
@@ -87,6 +98,7 @@ async def score_assessment(
 async def get_domain_scores(
     assessment_id: str,
     current_user: CurrentUser = Depends(get_current_user),
+    assessment_service: AssessmentService = Depends(get_assessment_service),
 ):
     """Get domain scores for an assessment."""
     try:
@@ -102,6 +114,7 @@ async def get_child_assessments(
     limit: int = 10,
     offset: int = 0,
     current_user: CurrentUser = Depends(get_current_user),
+    assessment_service: AssessmentService = Depends(get_assessment_service),
 ):
     """Get all assessments for a child."""
     try:
@@ -117,6 +130,7 @@ async def get_child_assessments(
 async def delete_assessment(
     assessment_id: str,
     current_user: CurrentUser = Depends(get_current_user),
+    assessment_service: AssessmentService = Depends(get_assessment_service),
 ):
     """Delete an assessment."""
     try:

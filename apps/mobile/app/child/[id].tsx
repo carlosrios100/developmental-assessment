@@ -25,7 +25,7 @@ import {
 import { useChild } from '@/hooks/useChildren';
 import { useAssessments } from '@/hooks/useAssessments';
 import { useVideos, useUploadVideo } from '@/hooks/useVideos';
-import { calculateAge } from '@/lib/mock-data';
+import { calculateAge } from '@/lib/utils';
 import { useChildStore } from '@/stores/child-store';
 import { supabase } from '@/lib/supabase';
 

@@ -1,4 +1,6 @@
 """Reports router."""
+from functools import lru_cache
+
 from fastapi import APIRouter, HTTPException, Depends
 
 from src.models.report import ReportRequest, ReportResponse
@@ -6,13 +8,19 @@ from src.services.report_generator import ReportGeneratorService
 from src.middleware.auth import get_current_user, CurrentUser
 
 router = APIRouter()
-report_service = ReportGeneratorService()
+
+
+@lru_cache
+def get_report_service() -> ReportGeneratorService:
+    """Get cached report generator service instance."""
+    return ReportGeneratorService()
 
 
 @router.post("/generate", response_model=ReportResponse)
 async def generate_report(
     request: ReportRequest,
     current_user: CurrentUser = Depends(get_current_user),
+    report_service: ReportGeneratorService = Depends(get_report_service),
 ):
     """
     Generate a developmental assessment report.
@@ -43,6 +51,7 @@ async def generate_report(
 async def get_report(
     report_id: str,
     current_user: CurrentUser = Depends(get_current_user),
+    report_service: ReportGeneratorService = Depends(get_report_service),
 ):
     """Get a generated report by ID."""
     try:
@@ -60,6 +69,7 @@ async def get_report(
 async def get_assessment_reports(
     assessment_id: str,
     current_user: CurrentUser = Depends(get_current_user),
+    report_service: ReportGeneratorService = Depends(get_report_service),
 ):
     """Get all reports for an assessment."""
     try:
@@ -75,6 +85,7 @@ async def get_child_reports(
     limit: int = 10,
     offset: int = 0,
     current_user: CurrentUser = Depends(get_current_user),
+    report_service: ReportGeneratorService = Depends(get_report_service),
 ):
     """Get all reports for a child."""
     try:
@@ -88,6 +99,7 @@ async def get_child_reports(
 async def delete_report(
     report_id: str,
     current_user: CurrentUser = Depends(get_current_user),
+    report_service: ReportGeneratorService = Depends(get_report_service),
 ):
     """Delete a report."""
     try:

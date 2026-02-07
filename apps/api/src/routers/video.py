@@ -1,4 +1,6 @@
 """Video analysis router."""
+from functools import lru_cache
+
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Depends
 from datetime import datetime
 
@@ -15,12 +17,18 @@ from src.services.video_analysis import VideoAnalysisService
 from src.middleware.auth import get_current_user, CurrentUser
 
 router = APIRouter()
-video_service = VideoAnalysisService()
+
+
+@lru_cache
+def get_video_service() -> VideoAnalysisService:
+    """Get cached video analysis service instance."""
+    return VideoAnalysisService()
 
 
 @router.post("/upload", response_model=dict)
 async def upload_video(
     current_user: CurrentUser = Depends(get_current_user),
+    video_service: VideoAnalysisService = Depends(get_video_service),
     file: UploadFile = File(...),
     child_id: str = Form(...),
     context: VideoContext = Form(...),
@@ -65,6 +73,7 @@ async def process_video(
     request: VideoProcessingRequest,
     background_tasks: BackgroundTasks,
     current_user: CurrentUser = Depends(get_current_user),
+    video_service: VideoAnalysisService = Depends(get_video_service),
 ):
     """
     Start video processing and analysis.
@@ -100,6 +109,7 @@ async def process_video(
 async def get_processing_status(
     video_id: str,
     current_user: CurrentUser = Depends(get_current_user),
+    video_service: VideoAnalysisService = Depends(get_video_service),
 ):
     """Get video processing status."""
     try:
@@ -117,6 +127,7 @@ async def get_processing_status(
 async def get_analysis_result(
     video_id: str,
     current_user: CurrentUser = Depends(get_current_user),
+    video_service: VideoAnalysisService = Depends(get_video_service),
 ):
     """Get video analysis result."""
     try:
@@ -136,6 +147,7 @@ async def get_child_videos(
     limit: int = 20,
     offset: int = 0,
     current_user: CurrentUser = Depends(get_current_user),
+    video_service: VideoAnalysisService = Depends(get_video_service),
 ):
     """Get all videos for a child."""
     try:
@@ -149,6 +161,7 @@ async def get_child_videos(
 async def delete_video(
     video_id: str,
     current_user: CurrentUser = Depends(get_current_user),
+    video_service: VideoAnalysisService = Depends(get_video_service),
 ):
     """Delete a video and its analysis results."""
     try:

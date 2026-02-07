@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, Clock, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react-native';
 import { useAssessment } from '@/hooks/useAssessments';
 import { useChild } from '@/hooks/useChildren';
-import { calculateAge } from '@/lib/mock-data';
+import { calculateAge } from '@/lib/utils';
 
 const DOMAIN_COLORS: Record<string, string> = {
   communication: '#3b82f6',
