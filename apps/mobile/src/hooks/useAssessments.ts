@@ -1,27 +1,39 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { api } from '@/lib/api';
+import type { Assessment, DomainScore, RiskLevel, DevelopmentalDomain } from '@devassess/shared';
 
-interface Assessment {
-  id: string;
-  child_id: string;
-  age_at_assessment: number;
-  questionnaire_version: number;
-  status: string;
-  completed_at: string | null;
-  overall_risk_level: string | null;
-  domain_scores?: DomainScore[];
+function transformDomainScore(row: any): DomainScore {
+  return {
+    domain: row.domain as DevelopmentalDomain,
+    rawScore: row.raw_score,
+    maxScore: row.max_score,
+    percentile: row.percentile ?? undefined,
+    zScore: row.z_score ?? undefined,
+    riskLevel: row.risk_level as RiskLevel,
+    cutoffScore: row.cutoff_score,
+    monitoringZoneCutoff: row.monitoring_zone_cutoff,
+  };
 }
 
-interface DomainScore {
-  domain: string;
-  raw_score: number;
-  max_score: number;
-  percentile: number;
-  z_score: number;
-  risk_level: string;
-  cutoff_score: number;
-  monitoring_zone_cutoff: number;
+function transformAssessment(row: any): Assessment {
+  return {
+    id: row.id,
+    childId: row.child_id,
+    ageAtAssessment: row.age_at_assessment,
+    questionnaireVersion: row.questionnaire_version,
+    status: row.status,
+    completedBy: row.completed_by,
+    completedByUserId: row.completed_by_user_id,
+    startedAt: new Date(row.started_at ?? row.created_at),
+    completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
+    overallRiskLevel: row.overall_risk_level ?? undefined,
+    notes: row.notes ?? undefined,
+    domainScores: row.domain_scores
+      ? (Array.isArray(row.domain_scores) ? row.domain_scores : []).map(transformDomainScore)
+      : undefined,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
 }
 
 export function useAssessments(childId?: string) {
@@ -35,7 +47,7 @@ export function useAssessments(childId?: string) {
         .eq('child_id', childId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as Assessment[];
+      return (data ?? []).map(transformAssessment);
     },
     enabled: !!childId,
   });
@@ -52,7 +64,7 @@ export function useAssessment(assessmentId?: string) {
         .eq('id', assessmentId)
         .single();
       if (error) throw error;
-      return data as unknown as Assessment;
+      return transformAssessment(data);
     },
     enabled: !!assessmentId,
   });
@@ -68,7 +80,7 @@ export function useRecentAssessments() {
         .order('created_at', { ascending: false })
         .limit(10);
       if (error) throw error;
-      return (data ?? []) as unknown as Assessment[];
+      return (data ?? []).map(transformAssessment);
     },
   });
 }

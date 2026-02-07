@@ -320,16 +320,16 @@ export default function ChildDetailScreen() {
           <Text style={styles.sectionTitle}>Latest Assessment</Text>
           <View style={styles.assessmentCard}>
             <View style={styles.assessmentHeader}>
-              <Text style={styles.assessmentAge}>{latestAssessment.age_at_assessment} Month Questionnaire</Text>
-              <View style={[styles.riskBadge, { backgroundColor: RISK_COLORS[latestAssessment.overall_risk_level ?? 'typical'] + '20' }]}>
-                <Text style={[styles.riskText, { color: RISK_COLORS[latestAssessment.overall_risk_level ?? 'typical'] }]}>
-                  {(latestAssessment.overall_risk_level ?? 'typical').charAt(0).toUpperCase() + (latestAssessment.overall_risk_level ?? 'typical').slice(1)}
+              <Text style={styles.assessmentAge}>{latestAssessment.ageAtAssessment} Month Questionnaire</Text>
+              <View style={[styles.riskBadge, { backgroundColor: RISK_COLORS[latestAssessment.overallRiskLevel ?? 'typical'] + '20' }]}>
+                <Text style={[styles.riskText, { color: RISK_COLORS[latestAssessment.overallRiskLevel ?? 'typical'] }]}>
+                  {(latestAssessment.overallRiskLevel ?? 'typical').charAt(0).toUpperCase() + (latestAssessment.overallRiskLevel ?? 'typical').slice(1)}
                 </Text>
               </View>
             </View>
 
             <View style={styles.domainScores}>
-              {(latestAssessment.domain_scores ?? []).map((score) => (
+              {(latestAssessment.domainScores ?? []).map((score) => (
                 <View key={score.domain} style={styles.domainRow}>
                   <View style={styles.domainInfo}>
                     <View style={[styles.domainDot, { backgroundColor: DOMAIN_COLORS[score.domain] }]} />
@@ -341,13 +341,13 @@ export default function ChildDetailScreen() {
                         style={[
                           styles.scoreBarFill,
                           {
-                            width: `${score.percentile}%`,
+                            width: `${score.percentile ?? 0}%`,
                             backgroundColor: DOMAIN_COLORS[score.domain]
                           }
                         ]}
                       />
                     </View>
-                    <Text style={styles.percentileText}>{score.percentile}%</Text>
+                    <Text style={styles.percentileText}>{score.percentile ?? 0}%</Text>
                   </View>
                 </View>
               ))}
@@ -385,23 +385,23 @@ export default function ChildDetailScreen() {
                     {video.context.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                   </Text>
                   <Text style={styles.videoMeta}>
-                    {video.duration}s • {new Date(video.recorded_at || video.created_at).toLocaleDateString()}
+                    {video.duration}s • {video.recordedAt.toLocaleDateString()}
                   </Text>
                 </View>
                 <View style={[
                   styles.videoStatus,
-                  { backgroundColor: video.processing_status === 'completed' ? '#dcfce7' : '#fef3c7' }
+                  { backgroundColor: video.processingStatus === 'completed' ? '#dcfce7' : '#fef3c7' }
                 ]}>
-                  {video.processing_status === 'completed' ? (
+                  {video.processingStatus === 'completed' ? (
                     <CheckCircle size={14} color="#16a34a" />
                   ) : (
                     <Clock size={14} color="#d97706" />
                   )}
                   <Text style={[
                     styles.videoStatusText,
-                    { color: video.processing_status === 'completed' ? '#16a34a' : '#d97706' }
+                    { color: video.processingStatus === 'completed' ? '#16a34a' : '#d97706' }
                   ]}>
-                    {video.processing_status === 'completed' ? 'Analyzed' : 'Processing'}
+                    {video.processingStatus === 'completed' ? 'Analyzed' : 'Processing'}
                   </Text>
                 </View>
               </View>
@@ -433,14 +433,14 @@ export default function ChildDetailScreen() {
               onPress={() => router.push(`/assessment/${assessment.id}`)}
             >
               <View style={styles.historyInfo}>
-                <Text style={styles.historyTitle}>{assessment.age_at_assessment} Month Assessment</Text>
+                <Text style={styles.historyTitle}>{assessment.ageAtAssessment} Month Assessment</Text>
                 <Text style={styles.historyDate}>
-                  {assessment.completed_at ? new Date(assessment.completed_at).toLocaleDateString() : 'In progress'}
+                  {assessment.completedAt ? assessment.completedAt.toLocaleDateString() : 'In progress'}
                 </Text>
               </View>
-              <View style={[styles.riskBadge, { backgroundColor: RISK_COLORS[assessment.overall_risk_level ?? 'typical'] + '20' }]}>
-                <Text style={[styles.riskText, { color: RISK_COLORS[assessment.overall_risk_level ?? 'typical'] }]}>
-                  {assessment.overall_risk_level ?? 'typical'}
+              <View style={[styles.riskBadge, { backgroundColor: RISK_COLORS[assessment.overallRiskLevel ?? 'typical'] + '20' }]}>
+                <Text style={[styles.riskText, { color: RISK_COLORS[assessment.overallRiskLevel ?? 'typical'] }]}>
+                  {assessment.overallRiskLevel ?? 'typical'}
                 </Text>
               </View>
             </TouchableOpacity>

@@ -18,9 +18,9 @@ import { useRecentAssessments } from '@/hooks/useAssessments';
 import { useVideos } from '@/hooks/useVideos';
 import { calculateAge } from '@/lib/utils';
 
-function formatTimeAgo(dateString: string): string {
+function formatTimeAgo(dateInput: string | Date): string {
   const now = Date.now();
-  const date = new Date(dateString).getTime();
+  const date = dateInput instanceof Date ? dateInput.getTime() : new Date(dateInput).getTime();
   const diffMs = now - date;
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
@@ -34,7 +34,8 @@ function formatTimeAgo(dateString: string): string {
   if (diffDays < 7) return `${diffDays} days ago`;
   if (diffWeeks === 1) return '1 week ago';
   if (diffWeeks < 4) return `${diffWeeks} weeks ago`;
-  return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 // Standard ASQ screening ages in months
@@ -57,8 +58,8 @@ export default function HomeScreen() {
       const ageMonths = Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44));
       const nextAge = getNextScreeningAge(ageMonths);
       if (nextAge === null) continue;
-      const childAssessments = assessments.filter(a => a.child_id === child.id);
-      const hasScreeningForAge = childAssessments.some(a => a.age_at_assessment === nextAge && a.status === 'completed');
+      const childAssessments = assessments.filter(a => a.childId === child.id);
+      const hasScreeningForAge = childAssessments.some(a => a.ageAtAssessment === nextAge && a.status === 'completed');
       if (!hasScreeningForAge) {
         const dueDate = new Date(new Date(dob).getTime() + nextAge * 30.44 * 24 * 60 * 60 * 1000);
         return {
@@ -185,7 +186,7 @@ export default function HomeScreen() {
           ) : children.length > 0 ? (
             <View style={styles.childrenList}>
               {children.map((child) => {
-                const assessment = assessments.find(a => a.child_id === child.id);
+                const assessment = assessments.find(a => a.childId === child.id);
                 const dob = child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth);
                 const age = calculateAge(dob);
                 return (
@@ -194,8 +195,8 @@ export default function HomeScreen() {
                     id={child.id}
                     name={child.firstName}
                     age={age.display}
-                    lastAssessment={assessment?.completed_at ?? undefined}
-                    status={assessment?.overall_risk_level || 'typical'}
+                    lastAssessment={assessment?.completedAt ? assessment.completedAt.toISOString() : undefined}
+                    status={assessment?.overallRiskLevel || 'typical'}
                   />
                 );
               })}
@@ -231,27 +232,27 @@ export default function HomeScreen() {
             const activityItems: { type: 'assessment' | 'video' | 'report'; title: string; description: string; time: string; date: number }[] = [];
 
             assessments.forEach(a => {
-              if (!a.completed_at) return;
-              const child = children.find(c => c.id === a.child_id);
-              const timeAgo = formatTimeAgo(a.completed_at);
+              if (!a.completedAt) return;
+              const child = children.find(c => c.id === a.childId);
+              const timeAgo = formatTimeAgo(a.completedAt);
               activityItems.push({
                 type: 'assessment',
                 title: 'Assessment Completed',
-                description: `${child?.firstName || 'Child'}'s ${a.age_at_assessment}-month assessment`,
+                description: `${child?.firstName || 'Child'}'s ${a.ageAtAssessment}-month assessment`,
                 time: timeAgo,
-                date: new Date(a.completed_at).getTime(),
+                date: a.completedAt.getTime(),
               });
             });
 
             recentVideos.slice(0, 5).forEach(v => {
-              const child = children.find(c => c.id === v.child_id);
-              const timeAgo = formatTimeAgo(v.created_at);
+              const child = children.find(c => c.id === v.childId);
+              const timeAgo = formatTimeAgo(v.uploadedAt);
               activityItems.push({
                 type: 'video',
-                title: v.processing_status === 'completed' ? 'Video Analyzed' : 'Video Uploaded',
+                title: v.processingStatus === 'completed' ? 'Video Analyzed' : 'Video Uploaded',
                 description: `${child?.firstName || 'Child'} - ${v.context.replace(/_/g, ' ')}`,
                 time: timeAgo,
-                date: new Date(v.created_at).getTime(),
+                date: v.uploadedAt.getTime(),
               });
             });
 

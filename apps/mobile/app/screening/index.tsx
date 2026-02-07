@@ -62,7 +62,7 @@ export default function ScreeningStartScreen() {
   const recommendedAge = childAge ? getRecommendedInterval(childAge.months) : null;
 
   const childAssessments = selectedChild
-    ? allAssessments.filter(a => a.child_id === selectedChild)
+    ? allAssessments.filter(a => a.childId === selectedChild)
     : [];
 
   const startScreening = () => {
@@ -104,7 +104,7 @@ export default function ScreeningStartScreen() {
               const dob = child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth);
               const age = calculateAge(dob);
               const isSelected = selectedChild === child.id;
-              const lastAssessment = allAssessments.find(a => a.child_id === child.id);
+              const lastAssessment = allAssessments.find(a => a.childId === child.id);
 
               return (
                 <TouchableOpacity
@@ -127,7 +127,7 @@ export default function ScreeningStartScreen() {
                     <Text style={styles.childAge}>{age.display} old</Text>
                     {lastAssessment && (
                       <Text style={styles.lastAssessment}>
-                        Last screening: {new Date(lastAssessment.completed_at || '').toLocaleDateString()}
+                        Last screening: {lastAssessment.completedAt ? lastAssessment.completedAt.toLocaleDateString() : 'In progress'}
                       </Text>
                     )}
                   </View>
@@ -246,21 +246,21 @@ export default function ScreeningStartScreen() {
               >
                 <View style={styles.historyInfo}>
                   <Text style={styles.historyTitle}>
-                    {assessment.age_at_assessment}-Month Screening
+                    {assessment.ageAtAssessment}-Month Screening
                   </Text>
                   <Text style={styles.historyDate}>
-                    {assessment.completed_at ? new Date(assessment.completed_at).toLocaleDateString() : 'In progress'}
+                    {assessment.completedAt ? assessment.completedAt.toLocaleDateString() : 'In progress'}
                   </Text>
                 </View>
                 <View style={[
                   styles.historyStatus,
-                  { backgroundColor: assessment.overall_risk_level === 'typical' ? '#dcfce7' : '#fef3c7' }
+                  { backgroundColor: assessment.overallRiskLevel === 'typical' ? '#dcfce7' : '#fef3c7' }
                 ]}>
                   <Text style={[
                     styles.historyStatusText,
-                    { color: assessment.overall_risk_level === 'typical' ? '#16a34a' : '#d97706' }
+                    { color: assessment.overallRiskLevel === 'typical' ? '#16a34a' : '#d97706' }
                   ]}>
-                    {assessment.overall_risk_level}
+                    {assessment.overallRiskLevel}
                   </Text>
                 </View>
               </TouchableOpacity>

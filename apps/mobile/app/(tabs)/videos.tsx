@@ -50,12 +50,12 @@ export default function VideosScreen() {
 
   const videos: VideoItem[] = videoData.map(v => ({
     id: v.id,
-    childId: v.child_id,
-    childName: children.find(c => c.id === v.child_id)?.firstName || 'Unknown',
+    childId: v.childId,
+    childName: children.find(c => c.id === v.childId)?.firstName || 'Unknown',
     context: v.context,
     duration: v.duration,
-    recordedAt: v.recorded_at || v.created_at,
-    status: v.processing_status as VideoStatus,
+    recordedAt: v.recordedAt.toISOString(),
+    status: v.processingStatus as VideoStatus,
     thumbnailUrl: null,
   }));
 

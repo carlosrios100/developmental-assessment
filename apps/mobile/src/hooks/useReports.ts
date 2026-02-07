@@ -1,24 +1,36 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import type { Report, ReportType, ReportFormat, ReportSection } from '@devassess/shared';
 
-interface Report {
-  id: string;
-  assessment_id: string;
-  child_id: string;
-  report_type: string;
-  report_format: string;
-  generated_at: string;
-  storage_url: string | null;
-  sections?: ReportSection[];
-  expires_at: string | null;
+function transformReport(row: any): Report {
+  return {
+    id: row.id,
+    assessmentId: row.assessment_id,
+    childId: row.child_id,
+    type: row.report_type as ReportType,
+    format: row.report_format as ReportFormat,
+    generatedAt: new Date(row.generated_at),
+    storageUrl: row.storage_url ?? undefined,
+    content: row.sections
+      ? {
+          title: '',
+          sections: row.sections.map(transformReportSection),
+          generatedBy: 'system',
+          disclaimer: '',
+        }
+      : undefined,
+    expiresAt: row.expires_at ? new Date(row.expires_at) : undefined,
+  };
 }
 
-interface ReportSection {
-  id: string;
-  title: string;
-  content: string;
-  order: number;
-  highlight?: boolean;
+function transformReportSection(row: any): ReportSection {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    order: row.order,
+    highlight: row.highlight,
+  };
 }
 
 export function useReports(childId?: string) {
@@ -26,7 +38,8 @@ export function useReports(childId?: string) {
     queryKey: ['reports', childId],
     queryFn: async () => {
       const path = childId ? `/reports/child/${childId}` : '/reports/child/all';
-      return api.get<Report[]>(path);
+      const data = await api.get<any[]>(path);
+      return data.map(transformReport);
     },
     enabled: !!childId,
   });
@@ -37,7 +50,8 @@ export function useReport(reportId?: string) {
     queryKey: ['report', reportId],
     queryFn: async () => {
       if (!reportId) return null;
-      return api.get<Report>(`/reports/${reportId}`);
+      const data = await api.get<any>(`/reports/${reportId}`);
+      return transformReport(data);
     },
     enabled: !!reportId,
   });
@@ -62,7 +76,7 @@ export function useGenerateReport() {
       includeVideoAnalysis?: boolean;
       includeRecommendations?: boolean;
     }) => {
-      return api.post<Report>('/reports/generate', {
+      const data = await api.post<any>('/reports/generate', {
         assessment_id: assessmentId,
         child_id: childId,
         report_type: reportType,
@@ -70,6 +84,7 @@ export function useGenerateReport() {
         include_video_analysis: includeVideoAnalysis,
         include_recommendations: includeRecommendations,
       });
+      return transformReport(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });

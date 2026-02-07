@@ -20,7 +20,7 @@ export default function ChildrenScreen() {
         ) : children.length > 0 ? (
           <View style={styles.childrenList}>
             {children.map((child) => {
-              const childAssessments = allAssessments.filter(a => a.child_id === child.id);
+              const childAssessments = allAssessments.filter(a => a.childId === child.id);
               const latestAssessment = childAssessments[0];
               const dob = child.dateOfBirth instanceof Date ? child.dateOfBirth.toISOString() : String(child.dateOfBirth);
               const ageMonths = Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 30));
@@ -32,9 +32,9 @@ export default function ChildrenScreen() {
                     name: child.firstName,
                     ageMonths,
                     gender: child.gender || 'unknown',
-                    lastAssessment: latestAssessment?.completed_at || '',
+                    lastAssessment: latestAssessment?.completedAt ? latestAssessment.completedAt.toISOString() : '',
                     assessmentCount: childAssessments.length,
-                    status: (latestAssessment?.overall_risk_level || 'typical') as any,
+                    status: (latestAssessment?.overallRiskLevel || 'typical') as any,
                   }}
                 />
               );

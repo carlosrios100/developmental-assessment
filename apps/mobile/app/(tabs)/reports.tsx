@@ -80,7 +80,7 @@ export default function ReportsScreen() {
     if (!selectedChild || !selectedReportType) return;
 
     const child = children.find(c => c.id === selectedChild);
-    const latestAssessment = assessments.find(a => a.child_id === selectedChild);
+    const latestAssessment = assessments.find(a => a.childId === selectedChild);
     if (!latestAssessment) {
       Alert.alert('No Assessment', 'Please complete an assessment first before generating a report.');
       return;
@@ -102,9 +102,9 @@ export default function ReportsScreen() {
         childName: child?.firstName || 'Unknown',
         type: selectedReportType as Report['type'],
         title: REPORT_TYPES.find(t => t.id === selectedReportType)?.title || 'Report',
-        generatedAt: report.generated_at || new Date().toISOString(),
+        generatedAt: report.generatedAt ? report.generatedAt.toISOString() : new Date().toISOString(),
         status: 'ready',
-        summary: report.sections?.[0]?.content?.substring(0, 200) || 'Report generated successfully.',
+        summary: report.content?.sections?.[0]?.content?.substring(0, 200) || 'Report generated successfully.',
       };
 
       setReports(prev => [newReport, ...prev]);

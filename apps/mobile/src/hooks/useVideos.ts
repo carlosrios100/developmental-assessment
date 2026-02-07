@@ -1,20 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
+import type { VideoUpload, VideoContext } from '@devassess/shared';
 
-interface VideoUpload {
-  id: string;
-  child_id: string;
-  assessment_id: string | null;
-  file_name: string;
-  file_size: number;
-  duration: number;
-  context: string;
-  recorded_at: string;
-  storage_url: string;
-  processing_status: 'pending' | 'processing' | 'completed' | 'failed';
-  processing_error: string | null;
-  created_at: string;
+function transformVideo(row: any): VideoUpload {
+  return {
+    id: row.id,
+    childId: row.child_id,
+    assessmentId: row.assessment_id ?? undefined,
+    fileName: row.file_name,
+    fileSize: row.file_size,
+    duration: row.duration,
+    context: row.context as VideoContext,
+    recordedAt: new Date(row.recorded_at),
+    uploadedAt: new Date(row.created_at),
+    storageUrl: row.storage_url ?? '',
+    thumbnailUrl: row.thumbnail_url ?? undefined,
+    processingStatus: row.processing_status,
+  };
 }
 
 export function useVideos(childId?: string) {
@@ -32,7 +35,7 @@ export function useVideos(childId?: string) {
 
       const { data, error } = await query.limit(50);
       if (error) throw error;
-      return (data ?? []) as VideoUpload[];
+      return (data ?? []).map(transformVideo);
     },
   });
 }

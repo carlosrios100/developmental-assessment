@@ -39,7 +39,7 @@ const RISK_DESCRIPTIONS: Record<string, string> = {
 export default function AssessmentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: assessment, isLoading: assessmentLoading } = useAssessment(id);
-  const { child, isLoading: childLoading } = useChild(assessment?.child_id);
+  const { child, isLoading: childLoading } = useChild(assessment?.childId);
 
   if (assessmentLoading || childLoading) {
     return (
@@ -67,8 +67,8 @@ export default function AssessmentDetailScreen() {
     );
   }
 
-  const completedDate = assessment.completed_at ? new Date(assessment.completed_at) : null;
-  const riskLevel = assessment.overall_risk_level ?? 'typical';
+  const completedDate = assessment.completedAt ?? null;
+  const riskLevel = assessment.overallRiskLevel ?? 'typical';
   const riskColor = RISK_COLORS[riskLevel];
 
   return (
@@ -97,14 +97,14 @@ export default function AssessmentDetailScreen() {
             <Calendar size={20} color="#6b7280" />
             <View>
               <Text style={styles.infoLabel}>Completed</Text>
-              <Text style={styles.infoValue}>{completedDate?.toLocaleDateString() ?? 'In progress'}</Text>
+              <Text style={styles.infoValue}>{completedDate instanceof Date ? completedDate.toLocaleDateString() : 'In progress'}</Text>
             </View>
           </View>
           <View style={styles.infoItem}>
             <Clock size={20} color="#6b7280" />
             <View>
               <Text style={styles.infoLabel}>Age at Assessment</Text>
-              <Text style={styles.infoValue}>{assessment.age_at_assessment} months</Text>
+              <Text style={styles.infoValue}>{assessment.ageAtAssessment} months</Text>
             </View>
           </View>
         </View>
@@ -124,14 +124,14 @@ export default function AssessmentDetailScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Domain Scores</Text>
 
-        {(assessment.domain_scores ?? []).map((score) => (
+        {(assessment.domainScores ?? []).map((score) => (
           <View key={score.domain} style={styles.domainCard}>
             <View style={styles.domainHeader}>
               <View style={[styles.domainIndicator, { backgroundColor: DOMAIN_COLORS[score.domain] }]} />
               <Text style={styles.domainName}>{DOMAIN_LABELS[score.domain]}</Text>
-              <View style={[styles.domainRiskBadge, { backgroundColor: RISK_COLORS[score.risk_level] + '20' }]}>
-                <Text style={[styles.domainRiskText, { color: RISK_COLORS[score.risk_level] }]}>
-                  {score.risk_level}
+              <View style={[styles.domainRiskBadge, { backgroundColor: RISK_COLORS[score.riskLevel] + '20' }]}>
+                <Text style={[styles.domainRiskText, { color: RISK_COLORS[score.riskLevel] }]}>
+                  {score.riskLevel}
                 </Text>
               </View>
             </View>
@@ -139,11 +139,11 @@ export default function AssessmentDetailScreen() {
             <View style={styles.scoreDetails}>
               <View style={styles.scoreItem}>
                 <Text style={styles.scoreLabel}>Raw Score</Text>
-                <Text style={styles.scoreValue}>{score.raw_score}</Text>
+                <Text style={styles.scoreValue}>{score.rawScore}</Text>
               </View>
               <View style={styles.scoreItem}>
                 <Text style={styles.scoreLabel}>Percentile</Text>
-                <Text style={styles.scoreValue}>{score.percentile}%</Text>
+                <Text style={styles.scoreValue}>{score.percentile ?? 0}%</Text>
               </View>
             </View>
 
@@ -152,7 +152,7 @@ export default function AssessmentDetailScreen() {
                 style={[
                   styles.percentileFill,
                   {
-                    width: `${score.percentile}%`,
+                    width: `${score.percentile ?? 0}%`,
                     backgroundColor: DOMAIN_COLORS[score.domain]
                   }
                 ]}
