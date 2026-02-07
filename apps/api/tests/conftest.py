@@ -7,6 +7,14 @@ from unittest.mock import MagicMock, AsyncMock, patch
 sys.modules['xhtml2pdf'] = MagicMock()
 sys.modules['xhtml2pdf.pisa'] = MagicMock()
 
+# Mock mediapipe.solutions if not available (headless CI lacks OpenGL deps)
+try:
+    import mediapipe as _mp
+    _mp.solutions  # noqa: B018
+except (ImportError, AttributeError):
+    sys.modules['mediapipe'] = MagicMock()
+    sys.modules['mediapipe.solutions'] = MagicMock()
+
 from fastapi.testclient import TestClient
 
 from src.main import app
