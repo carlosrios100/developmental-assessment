@@ -88,14 +88,18 @@ class GeopoliticalService:
     def __init__(self):
         self.supabase = get_supabase_client()
 
-    async def get_opportunity_index(self, zip_code: str) -> OpportunityIndexResponse | None:
-        """Get opportunity index for a zip code."""
+    async def get_opportunity_index(self, zip_code: str) -> OpportunityIndexResponse:
+        """Get opportunity index for a zip code.
+
+        Returns actual data if available, otherwise a national-average estimate.
+        """
         result = self.supabase.table("opportunity_indices").select("*").eq(
             "zip_code", zip_code
         ).execute()
 
         if not result.data:
-            return None
+            logger.info("No opportunity data for zip %s, returning national estimate", zip_code)
+            return self._national_estimate(zip_code)
 
         data = result.data[0]
 
@@ -394,6 +398,26 @@ class GeopoliticalService:
         logger.info(
             "Recalculated multiplier for child %s: SES=%.2f, opportunity=%.2f, multiplier=%.2f",
             child_id, socio_econ_status, opportunity_index or 0, adversity_multiplier
+        )
+
+    @staticmethod
+    def _national_estimate(zip_code: str) -> OpportunityIndexResponse:
+        """Return a national-average fallback for an unknown zip code."""
+        return OpportunityIndexResponse(
+            id="estimated",
+            zip_code=zip_code,
+            state_code="US",
+            city=None,
+            opportunity_index=0.50,
+            key_industries=["Healthcare", "Education", "Retail", "Technology"],
+            local_grants=None,
+            risk_factors=None,
+            growth_trends=None,
+            school_quality_score=None,
+            internet_access_score=None,
+            food_access_score=None,
+            median_income=None,
+            is_estimated=True,
         )
 
     def _map_opportunity_response(self, data: dict) -> OpportunityIndexResponse:

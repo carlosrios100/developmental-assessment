@@ -248,6 +248,7 @@ class OpportunityIndexResponse(BaseModel):
     internet_access_score: float | None = None
     food_access_score: float | None = None
     median_income: int | None = None
+    is_estimated: bool = False
 
 
 class SaveFamilyContextRequest(BaseModel):

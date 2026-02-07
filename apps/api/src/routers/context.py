@@ -30,15 +30,7 @@ async def get_opportunity_index(
     Returns local industries, grants, school quality, and other opportunity metrics.
     """
     try:
-        opportunity = await geopolitical_service.get_opportunity_index(zip_code)
-        if not opportunity:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No opportunity data found for zip code {zip_code}"
-            )
-        return opportunity
-    except HTTPException:
-        raise
+        return await geopolitical_service.get_opportunity_index(zip_code)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
